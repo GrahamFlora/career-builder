@@ -812,6 +812,66 @@ const parsedGrahamDataMap = {
   job5Desc: 'A technical support to Trend Micro Home and Home Office users powered by Trend Micro Smart protection Network cloud security infrastructure that stops threats in cyberspace. Provides customer support with their account management, product inquiries, and to deliver best solutions to product concerns.'
 };
 
+// --- SEMANTIC TEMPLATE ENHANCER ---
+// This function reads the raw text from an uploaded client template and intelligently 
+// assigns labels and IDs so it matches our system and creates a clean UI.
+const enhanceImportedTemplate = (schema) => {
+  let maxFontSize = 0;
+  schema.elements.forEach(el => { if (el.fontSize > maxFontSize) maxFontSize = el.fontSize; });
+
+  let jobTitleCounter = 1;
+  let jobDescCounter = 1;
+
+  schema.elements = schema.elements.map((el) => {
+      let newId = el.id;
+      let newLabel = el.label;
+      let isMultiline = el.defaultVal.length > 50 || el.defaultVal.includes('\n');
+      const textLower = el.defaultVal.toLowerCase();
+      const textLen = el.defaultVal.length;
+
+      // Intelligent Label & ID Mapping based on content and size
+      if (el.fontSize === maxFontSize && textLen < 40) {
+          newId = 'fullName'; newLabel = 'Full Name';
+      } else if (textLower.includes('experience') && textLen < 30) {
+          newId = 'expTitle'; newLabel = 'Experience Header';
+      } else if (textLower.includes('education') && textLen < 30) {
+          newId = 'eduTitle'; newLabel = 'Education Header';
+      } else if (textLower.includes('skill') && textLen < 30) {
+          newId = 'techSkillsTitle'; newLabel = 'Skills Header';
+      } else if ((textLower.includes('profile') || textLower.includes('summary')) && textLen < 30) {
+          newId = 'summaryTitle'; newLabel = 'Summary Header';
+      } else if (textLower.includes('contact') && textLen < 30) {
+          newId = 'contactTitle'; newLabel = 'Contact Header';
+      } else if (el.defaultVal.includes('@') && !el.defaultVal.includes(' ')) {
+          newId = 'email'; newLabel = 'Email Address';
+      } else if (/^\+?[\d\s\-\(\)]{7,20}$/.test(el.defaultVal.trim())) {
+          newId = 'phone'; newLabel = 'Phone Number';
+      } else if (textLower.includes('linkedin.com')) {
+          newId = 'linkedin'; newLabel = 'LinkedIn';
+      } else if (textLen < 45) {
+          // If it's short but not a standard header, use the text itself as the label!
+          newLabel = el.defaultVal; 
+          
+          // Guess if it's a job title (bold + medium size)
+          if ((el.fontWeight === 'bold' || el.fontSize > 11) && el.fontSize < maxFontSize) {
+              newId = `job${jobTitleCounter}Title`;
+              jobTitleCounter++;
+          }
+      } else {
+          newLabel = "Description / Body Text";
+          if (jobDescCounter < jobTitleCounter) {
+              newId = `job${jobDescCounter}Desc`;
+              jobDescCounter++;
+          } else if (newId.includes('imported')) {
+              newId = 'summary'; // fallback body
+          }
+      }
+      
+      return { ...el, id: newId, label: newLabel, isMultiline };
+  });
+  return schema;
+};
+
 // --- SVG Icon Components ---
 const IconRenderer = ({ type, color, size = 14 }) => {
   const svgs = {
@@ -879,16 +939,18 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
       fontWeight: el.fontWeight,
       color: finalColor,
       textAlign: el.textAlign,
-      borderBottom: finalBorder,
-      borderLeft: el.borderLeft || 'none',
-      paddingLeft: el.paddingLeft ? `${el.paddingLeft}px` : '0',
-      paddingBottom: el.paddingBottom ? `${el.paddingBottom}px` : '0',
-      padding: el.padding ? `${el.padding}px` : '0',
+      borderTop: el.border || 'none',
+      borderRight: el.border || 'none',
+      borderBottom: finalBorder || el.border || 'none',
+      borderLeft: el.borderLeft || el.border || 'none',
+      paddingTop: el.padding ? `${el.padding}px` : '0',
+      paddingRight: el.padding ? `${el.padding}px` : '0',
+      paddingBottom: el.paddingBottom ? `${el.paddingBottom}px` : (el.padding ? `${el.padding}px` : '0'),
+      paddingLeft: el.paddingLeft ? `${el.paddingLeft}px` : (el.padding ? `${el.padding}px` : '0'),
       backgroundColor: el.backgroundColor || 'transparent',
       borderRadius: el.borderRadius ? `${el.borderRadius}px` : '0',
       boxShadow: el.boxShadow || 'none',
       textTransform: el.textTransform || 'none',
-      border: el.border || 'none',
       letterSpacing: el.letterSpacing || 'normal',
       lineHeight: el.lineHeight || '1.5',
       justifyContent: el.justifyContent || 'flex-start'
@@ -1307,6 +1369,41 @@ export default function App() {
     }, 2000);
   };
 
+  // NEW: Import Data directly into the currently active Editor
+  const handleImportDataInEditor = () => {
+    setIsUploading(true);
+    showToast('Mapping your data to this template...', 'loading');
+    
+    setTimeout(() => {
+      // Map data from parsedGrahamDataMap to the matching IDs in the template
+      const updatedFormData = { ...formData };
+      Object.keys(parsedGrahamDataMap).forEach(key => {
+        updatedFormData[key] = parsedGrahamDataMap[key];
+      });
+      setFormData(updatedFormData);
+
+      // Save defaults to the active resume state
+      setResumes(prev => prev.map(r => {
+        if (r.id !== activeResumeId) return r;
+        return {
+          ...r,
+          data: {
+            ...r.data,
+            elements: r.data.elements.map(el => {
+               if (parsedGrahamDataMap[el.id] !== undefined) {
+                  return { ...el, defaultVal: parsedGrahamDataMap[el.id] };
+               }
+               return el;
+            })
+          }
+        };
+      }));
+
+      setIsUploading(false);
+      showToast('Data mapped successfully!', 'success');
+    }, 1200);
+  };
+
   // NEW: Handler for uploading Custom Client Templates (Fully Functional API Call)
   const handleTemplateFileChange = async (e) => {
     const file = e.target.files[0];
@@ -1330,8 +1427,11 @@ export default function App() {
       }
 
       // The backend returns a perfectly formatted JSON schema matching our system!
-      const customClientTemplate = await response.json();
+      let customClientTemplate = await response.json();
       
+      // RUN SEMANTIC ENHANCER ON THE IMPORTED TEMPLATE
+      customClientTemplate = enhanceImportedTemplate(customClientTemplate);
+
       handleSelectTemplate(customClientTemplate);
       showToast('Custom template reverse-engineered successfully!', 'success');
     } catch (error) {
@@ -1340,7 +1440,7 @@ export default function App() {
       
       // Fallback to simulation if backend isn't running yet so the UI doesn't break during your testing
       setTimeout(() => {
-        const fallbackTemplate = {
+        let fallbackTemplate = {
           id: `custom_client_${Date.now()}`,
           name: `Imported Layout: ${file.name.split('.')[0]}`,
           columns: 1,
@@ -1357,6 +1457,10 @@ export default function App() {
             marginBottom: el.marginBottom ? el.marginBottom * 0.8 : 0
           }))
         };
+        
+        // RUN SEMANTIC ENHANCER ON FALLBACK TOO
+        fallbackTemplate = enhanceImportedTemplate(fallbackTemplate);
+        
         handleSelectTemplate(fallbackTemplate);
       }, 1500);
     } finally {
@@ -1829,6 +1933,16 @@ export default function App() {
             </>
           ) : (
             <>
+              {/* NEW: Import Data button inside the Editor */}
+              <button onClick={handleImportDataInEditor} disabled={isUploading} className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-sm disabled:opacity-50">
+                {isUploading ? (
+                   <svg className="animate-spin h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                ) : (
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                )}
+                Import Data
+              </button>
+
               <button onClick={() => setIsEditorOpen(!isEditorOpen)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${isEditorOpen ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
                 <svg className="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v18m12-9H9m12-7a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5z"></path></svg> 
                 {isEditorOpen ? 'Hide Editor' : 'Show Editor'}
@@ -1872,7 +1986,8 @@ export default function App() {
         {/* === VIEW 1: DASHBOARD GALLERY === */}
         {view === 'gallery' && (
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 relative">
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-12">
+            {/* REMOVED max-w-7xl to allow full width expansion on large monitors */}
+            <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8 sm:py-12">
               
               {/* Premium Hero Banner */}
               <div className="mb-12 bg-gradient-to-br from-violet-900 via-indigo-800 to-violet-600 rounded-3xl p-8 sm:p-10 md:p-12 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
@@ -2064,10 +2179,85 @@ export default function App() {
                 <div className="flex border-b border-slate-200 flex-shrink-0 bg-white">
                   <button onClick={() => setActiveEditorTab('content')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'content' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Content</button>
                   <button onClick={() => setActiveEditorTab('design')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'design' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Design</button>
+                  <button onClick={() => setActiveEditorTab('templates')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'templates' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Templates</button>
                 </div>
 
                 <div id="editor-content-pane" className="flex-1 overflow-y-auto p-5 md:p-6 custom-scrollbar bg-white pb-20 md:pb-6">
                   
+                  {/* TEMPLATES TAB */}
+                  {activeEditorTab === 'templates' && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      {/* Upload Custom Template Section */}
+                      <div className="bg-violet-50 rounded-xl p-4 sm:p-5 border border-violet-100 shadow-sm">
+                        <h3 className="text-xs font-bold text-violet-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                          Client Templates
+                        </h3>
+                        <p className="text-xs text-violet-700/80 mb-4 leading-relaxed font-medium">Upload a PDF, DOCX, or PPTX from your client. The AI will instantly map your current content to their exact layout.</p>
+                        <button 
+                          onClick={() => templateInputRef.current?.click()} 
+                          disabled={isUploading}
+                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          {isUploading ? (
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                          )}
+                          {isUploading ? "AI Engine Running..." : "Upload Client Template"}
+                        </button>
+                      </div>
+
+                      <div className="h-px bg-slate-100 w-full my-2"></div>
+
+                      {/* Standard Template Gallery */}
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                          Template Library
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {ALL_TEMPLATES.map(tpl => {
+                            const isCurrent = activeResume.data.id === tpl.id || (activeResume.data.name === tpl.name);
+                            
+                            // Visual Scaling variables
+                            const scale = 0.15; // Makes the thumbnail approx 135px wide
+                            const scaledW = tpl.page.width * scale;
+                            const scaledH = tpl.page.minHeight * scale;
+                            
+                            // Map the current live editor data to the thumbnail preview
+                            const mockFormData = {};
+                            tpl.elements.forEach(e => {
+                              let val = formData[e.id] !== undefined ? formData[e.id] : e.defaultVal;
+                              if (val === null || val === undefined || String(val).trim() === '') val = e.defaultVal;
+                              mockFormData[e.id] = val;
+                            });
+
+                            return (
+                              <div 
+                                key={tpl.id} 
+                                onClick={() => handleSelectTemplate(tpl)} 
+                                className={`cursor-pointer group flex flex-col items-center transition-all duration-200`}
+                              >
+                                <div 
+                                  className={`relative bg-white rounded-lg shadow-sm border-2 overflow-hidden transition-all duration-300 flex-shrink-0 ${isCurrent ? 'border-violet-500 ring-2 ring-violet-500/20 shadow-md' : 'border-slate-200 group-hover:border-violet-400 group-hover:shadow-md group-hover:-translate-y-1'}`}
+                                  style={{ width: `${scaledW}px`, height: `${scaledH}px` }}
+                                >
+                                  <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: `${tpl.page.width}px`, minHeight: `${tpl.page.minHeight}px`, pointerEvents: 'none' }}>
+                                      <RenderTemplate resumeData={{data: tpl}} formData={mockFormData} />
+                                  </div>
+                                </div>
+                                <div className={`mt-2 text-[10px] font-bold text-center leading-tight transition-colors ${isCurrent ? 'text-violet-700' : 'text-slate-600 group-hover:text-slate-900'}`}>
+                                  {tpl.name}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* DESIGN TAB */}
                   {activeEditorTab === 'design' && (
                     <div className="space-y-6 animate-in fade-in duration-200">
