@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
+const PAGE_FORMATS = {
+  'US Letter (8.5" x 11")': { width: 816, minHeight: 1056 },
+  'US Legal (8.5" x 14")': { width: 816, minHeight: 1344 },
+  'A4 (210 x 297mm)': { width: 794, minHeight: 1123 },
+  'Standard (900x1100)': { width: 900, minHeight: 1100 },
+};
+
 // --- Template Schemas (Upgraded for Auto-Flow Layout) ---
 
 // 1. Standard Executive (Classic 1 Col)
@@ -284,6 +291,7 @@ const harvardStyleTemplate = {
   name: 'Harvard Style Resume',
   columns: 1,
   headshot: false,
+  designLocked: true,
   designConfig: { fontFamily: '"Times New Roman", Times, serif' },
   page: { width: 900, minHeight: 1100 },
   elements: classicTemplate.elements.map(el => {
@@ -514,6 +522,7 @@ const infographicTemplate = {
   name: 'Infographic Resume',
   columns: 2,
   headshot: true,
+  designLocked: true,
   sidebarWidth: '40%',
   page: { width: 900, minHeight: 1100 },
   leftBg: '#2e1065',
@@ -568,6 +577,7 @@ const magazineTemplate = {
   name: 'Magazine Style',
   columns: 2,
   headshot: true,
+  designLocked: true,
   designConfig: { fontFamily: 'Georgia, serif' },
   page: { width: 900, minHeight: 1100 },
   leftBg: '#ffffff',
@@ -594,6 +604,7 @@ const developerTemplate = {
   name: 'Developer Resume',
   columns: 1,
   headshot: false,
+  designLocked: true,
   designConfig: { fontFamily: '"Roboto Mono", monospace' },
   page: { width: 900, minHeight: 1100 },
   elements: [
@@ -718,6 +729,7 @@ const personalBrandingTemplate = {
   name: 'Personal Branding Resume',
   columns: 2,
   headshot: false,
+  designLocked: true,
   sidebarWidth: '35%',
   page: { width: 900, minHeight: 1100 },
   leftBg: '#111827',
@@ -813,8 +825,6 @@ const parsedGrahamDataMap = {
 };
 
 // --- SEMANTIC TEMPLATE ENHANCER ---
-// This function reads the raw text from an uploaded client template and intelligently 
-// assigns labels and IDs so it matches our system and creates a clean UI.
 const enhanceImportedTemplate = (schema) => {
   let maxFontSize = 0;
   schema.elements.forEach(el => { if (el.fontSize > maxFontSize) maxFontSize = el.fontSize; });
@@ -849,10 +859,8 @@ const enhanceImportedTemplate = (schema) => {
       } else if (textLower.includes('linkedin.com')) {
           newId = 'linkedin'; newLabel = 'LinkedIn';
       } else if (textLen < 45) {
-          // If it's short but not a standard header, use the text itself as the label!
           newLabel = el.defaultVal; 
           
-          // Guess if it's a job title (bold + medium size)
           if ((el.fontWeight === 'bold' || el.fontSize > 11) && el.fontSize < maxFontSize) {
               newId = `job${jobTitleCounter}Title`;
               jobTitleCounter++;
@@ -863,7 +871,7 @@ const enhanceImportedTemplate = (schema) => {
               newId = `job${jobDescCounter}Desc`;
               jobDescCounter++;
           } else if (newId.includes('imported')) {
-              newId = 'summary'; // fallback body
+              newId = 'summary'; 
           }
       }
       
@@ -890,7 +898,9 @@ const IconRenderer = ({ type, color, size = 14 }) => {
     link: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
     chart: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>`,
     book: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
-    github: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>`
+    github: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>`,
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>`,
+    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
   };
   return <div dangerouslySetInnerHTML={{ __html: svgs[type] }} className="flex-shrink-0" />;
 };
@@ -902,9 +912,18 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
   const design = tpl.designConfig || {};
   const accent = design.accentColor || tpl.defaultAccent;
   const sidebarBg = design.sidebarColor || tpl.leftBg;
-  const fontFam = design.fontFamily || 'Arial, sans-serif';
+  
+  // NEW: Advanced Typography System with 'Inter' as the modern default fallback
+  const primaryFont = design.primaryFont || design.fontFamily || "'Inter', sans-serif";
+  const secondaryFont = design.secondaryFont || design.fontFamily || "'Inter', sans-serif";
+  const baseFontSize = design.baseFontSize || 11;
+  const fontScale = baseFontSize / 11;
 
-  const renderElement = (el) => {
+  // Apply Selected Page Format or default back to template's baseline
+  const pageWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : tpl.page.width;
+  const pageHeight = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].minHeight : tpl.page.minHeight;
+
+  const renderElement = (el, isTopLevel = true) => {
     const value = formData[el.id];
     if ((value === null || value === undefined || String(value).trim() === '') && el.type !== 'image' && el.type !== 'shape') return null;
 
@@ -935,7 +954,8 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
       alignSelf: el.alignSelf || 'auto',
       width: el.type === 'image' ? `${el.width}px` : (el.width || 'auto'),
       
-      fontSize: `${el.fontSize}px`,
+      fontFamily: (el.id.includes('Title') || el.id === 'fullName' || el.id === 'brandLogo') ? primaryFont : secondaryFont,
+      fontSize: `${Math.round(el.fontSize * fontScale)}px`,
       fontWeight: el.fontWeight,
       color: finalColor,
       textAlign: el.textAlign,
@@ -956,9 +976,13 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
       justifyContent: el.justifyContent || 'flex-start'
     };
 
+    const blockClass = isTopLevel ? "resume-block" : "";
+    const hoverClass = onElementMouseDown ? "hover:outline hover:outline-1 hover:outline-violet-400 hover:outline-offset-2 rounded-sm" : "";
+    const combinedClass = `${blockClass} ${hoverClass}`.trim();
+
     if (el.type === 'image') {
       return (
-        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={onElementMouseDown ? "hover:outline hover:outline-2 hover:outline-violet-400" : ""} style={{ ...dragStyle, width: `${el.width}px`, height: `${el.height}px`, borderRadius: '50%', backgroundColor: '#334155', border: '3px solid #64748b', overflow: 'hidden', justifyContent: 'center' }}>
+        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', width: `${el.width}px`, height: `${el.height}px`, borderRadius: '50%', backgroundColor: '#334155', border: '3px solid #64748b', overflow: 'hidden', justifyContent: 'center' }}>
           {value ? <img src={value} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" /> : <span style={{ color: '#94a3b8', fontSize: '10px' }}>No Photo</span>}
         </div>
       )
@@ -966,18 +990,18 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
 
     const textLines = (String(value) || '').split('\n');
     
-    // NEW: Render Visual Progress Bars
+    // Render Visual Progress Bars
     if (el.isProgress) {
       const progressArr = formData[`${el.id}_progress`] || el.progressValues || [];
       return (
-        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={onElementMouseDown ? "hover:outline hover:outline-1 hover:outline-violet-400 hover:outline-offset-2 rounded-sm" : ""} style={{ ...dragStyle, whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'block' }}>
+        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'block' }}>
           {el.headerIcon && <IconRenderer type={el.headerIcon} size={el.fontSize * 1.2} color={finalColor} />}
           {el.iconType && <IconRenderer type={el.iconType} size={el.fontSize * 1.2} color={finalColor} />}
           <div style={{ flex: 1, width: '100%', marginTop: (el.headerIcon || el.iconType) ? '8px' : '0' }}>
             {textLines.map((line, i) => {
               if(!line.trim()) return null;
               const cleanLine = line.replace(/^[•\-\*]\s*/, '');
-              const defaultProg = 65 + ((i * 13) % 30); // Visually distinct varied progress widths fallback
+              const defaultProg = 65 + ((i * 13) % 30); 
               const progress = progressArr[i] !== undefined ? progressArr[i] : defaultProg;
               
               return (
@@ -997,7 +1021,7 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
     }
 
     return (
-      <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={onElementMouseDown ? "hover:outline hover:outline-1 hover:outline-violet-400 hover:outline-offset-2 rounded-sm" : ""} style={{ ...dragStyle, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {el.headerIcon && <IconRenderer type={el.headerIcon} size={el.fontSize * 1.2} color={finalColor} />}
         {el.iconType && <IconRenderer type={el.iconType} size={el.fontSize * 1.2} color={finalColor} />}
         <div style={{ flex: 1, width: '100%' }}>
@@ -1013,9 +1037,13 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
   };
 
   return (
-    <div style={{ width: `${tpl.page.width}px`, minHeight: `${tpl.page.minHeight}px`, backgroundColor: '#fff', display: 'flex', flexDirection: tpl.columns === 1 ? 'column' : 'row', fontFamily: fontFam }}>
+    <div style={{ width: `${pageWidth}px`, minHeight: `${pageHeight}px`, backgroundColor: '#fff', display: 'flex', flexDirection: tpl.columns === 1 ? 'column' : 'row', fontFamily: secondaryFont, position: 'relative' }}>
+      
+      {/* Container for Javascript-injected Desk Gaps to simulate physical pages */}
+      <div id="desk-gaps-container" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40 }} />
+
       {tpl.columns === 1 ? (
-        <div className="flex flex-col w-full h-full p-16">
+        <div className="flex flex-col w-full h-full p-16 resume-column relative z-10">
           {tpl.elements.filter(e => e.col === 'main').reduce((acc, el) => {
             if (el.inline) {
               if (acc.length > 0 && acc[acc.length - 1].type === 'inlineGroup') {
@@ -1030,21 +1058,21 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
           }, []).map(item => {
             if (item.type === 'inlineGroup') {
               return (
-                <div key={item.id} className="flex flex-wrap items-center">
-                  {item.items.map(renderElement)}
+                <div key={item.id} className="flex flex-wrap items-center resume-block" style={{ '--orig-mt': '0px' }}>
+                  {item.items.map(child => renderElement(child, false))}
                 </div>
               );
             }
-            return renderElement(item);
+            return renderElement(item, true);
           })}
         </div>
       ) : (
         <React.Fragment>
-          <div className="flex flex-col flex-shrink-0 p-10" style={{ width: tpl.sidebarWidth || '35%', background: sidebarBg }}>
-            {tpl.elements.filter(e => e.col === 'left').map(renderElement)}
+          <div className="flex flex-col flex-shrink-0 p-10 resume-column relative z-10" style={{ width: tpl.sidebarWidth || '35%', background: sidebarBg }}>
+            {tpl.elements.filter(e => e.col === 'left').map(el => renderElement(el, true))}
           </div>
-          <div className="flex flex-col flex-1 p-12" style={{ backgroundColor: tpl.rightBg }}>
-            {tpl.elements.filter(e => e.col === 'right').map(renderElement)}
+          <div className="flex flex-col flex-1 p-12 resume-column relative z-10" style={{ backgroundColor: tpl.rightBg }}>
+            {tpl.elements.filter(e => e.col === 'right').map(el => renderElement(el, true))}
           </div>
         </React.Fragment>
       )}
@@ -1089,6 +1117,39 @@ export default function App() {
 
   const activeResume = resumes.find(r => r.id === activeResumeId);
 
+  // Editable Document Title State
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState("");
+
+  // --- NEW: Auto-Save Status Indicator ---
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving'
+  const saveTimeoutRef = useRef(null);
+
+  const triggerSaveIndicator = useCallback(() => {
+    setSaveStatus('saving');
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      setSaveStatus('saved');
+    }, 1000); // 1 second artificial delay for smooth UX
+  }, []);
+
+  const handleTitleDoubleClick = () => {
+     if(!activeResume) return;
+     setIsEditingTitle(true);
+     setTempTitle(activeResume.name);
+  };
+  const handleTitleSave = () => {
+     setIsEditingTitle(false);
+     if (tempTitle.trim() && tempTitle !== activeResume.name) {
+        setResumes(prev => prev.map(r => r.id === activeResumeId ? { ...r, name: tempTitle.trim() } : r));
+        triggerSaveIndicator();
+     }
+  };
+  const handleTitleKeyDown = (e) => {
+     if (e.key === 'Enter') handleTitleSave();
+     if (e.key === 'Escape') setIsEditingTitle(false);
+  };
+
   // --- Window Tracking for Mobile Responsiveness ---
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const isMobile = windowWidth < 768;
@@ -1100,7 +1161,7 @@ export default function App() {
   }, []);
 
   const [isUploading, setIsUploading] = useState(false);
-  const [isEditorOpen, setIsEditorOpen] = useState(!isMobile); // Toggles the left pane in editor mode
+  const [isEditorOpen, setIsEditorOpen] = useState(!isMobile); 
   const [editorWidth, setEditorWidth] = useState(380);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -1111,27 +1172,104 @@ export default function App() {
   const rightPaneRef = useRef(null);
   const [previewScale, setPreviewScale] = useState(1);
 
+  // --- AUTO-PAGINATION ENGINE ---
+  useEffect(() => {
+    if (view !== 'editor') return;
+    
+    const timer = setTimeout(() => {
+      const container = document.getElementById('printable-resume');
+      if (!container) return;
+
+      const pHeight = activeResume?.data?.designConfig?.pageSize && PAGE_FORMATS[activeResume.data.designConfig.pageSize]
+          ? PAGE_FORMATS[activeResume.data.designConfig.pageSize].minHeight
+          : (activeResume?.data?.page?.minHeight || 1100);
+
+      const pageGap = 40; 
+      const marginY = 48; 
+
+      let maxScrollHeight = pHeight;
+
+      const columns = container.querySelectorAll('.resume-column');
+      columns.forEach(col => {
+          const blocks = col.querySelectorAll('.resume-block');
+
+          blocks.forEach(b => {
+              b.style.marginTop = b.style.getPropertyValue('--orig-mt').trim() || '0px';
+          });
+
+          blocks.forEach(block => {
+              const rect = block.getBoundingClientRect();
+              const colRect = col.getBoundingClientRect();
+              
+              const offsetTop = (rect.top - colRect.top) / previewScale;
+              const offsetHeight = rect.height / previewScale;
+
+              const cycleHeight = pHeight + pageGap;
+              const pageNum = Math.floor(offsetTop / cycleHeight);
+              const pageSafeBottom = (pageNum * cycleHeight) + pHeight - marginY;
+
+              if (offsetTop + offsetHeight > pageSafeBottom) {
+                  const nextPageNum = pageNum + 1;
+                  const nextPageSafeTop = (nextPageNum * cycleHeight) + marginY;
+                  const pushAmount = nextPageSafeTop - offsetTop;
+
+                  const currentMargin = parseFloat(getComputedStyle(block).marginTop) || 0;
+                  block.style.marginTop = `${currentMargin + pushAmount}px`;
+              }
+          });
+
+          if (col.scrollHeight > maxScrollHeight) {
+              maxScrollHeight = col.scrollHeight;
+          }
+      });
+
+      const calculatedPages = Math.ceil(maxScrollHeight / (pHeight + pageGap));
+      const gapsContainer = document.getElementById('desk-gaps-container');
+      
+      if (gapsContainer) {
+          gapsContainer.innerHTML = ''; 
+          for (let i = 1; i < calculatedPages; i++) {
+              const gapTop = i * pHeight + (i - 1) * pageGap;
+              const gapEl = document.createElement('div');
+              gapEl.className = 'desk-gap';
+              gapEl.style.position = 'absolute';
+              gapEl.style.top = `${gapTop}px`;
+              gapEl.style.left = '0';
+              gapEl.style.right = '0';
+              gapEl.style.height = `${pageGap}px`;
+              gapEl.style.backgroundColor = '#e2e8f0'; 
+              gapEl.style.boxShadow = 'inset 0 8px 10px -6px rgba(0,0,0,0.1), inset 0 -8px 10px -6px rgba(0,0,0,0.1)';
+              gapEl.style.borderTop = '1px solid #94a3b8';
+              gapEl.style.borderBottom = '1px solid #94a3b8';
+              gapEl.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #64748b; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Page ${i + 1}</div>`;
+              gapsContainer.appendChild(gapEl);
+          }
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [formData, activeResumeId, view, previewScale, activeResume?.data?.designConfig?.pageSize]);
+
   useEffect(() => {
     const updateScale = () => {
       if (rightPaneRef.current && activeResume && view === 'editor') {
          const containerWidth = rightPaneRef.current.clientWidth;
          const availableWidth = containerWidth - (isMobile ? 32 : 64);
-         const newScale = Math.min(1, availableWidth / activeResume.data.page.width);
+         const design = activeResume.data.designConfig || {};
+         const pWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : activeResume.data.page.width;
+         const newScale = Math.min(1, availableWidth / pWidth);
          setPreviewScale(newScale);
       }
     };
     setTimeout(updateScale, 10);
     window.addEventListener('resize', updateScale);
     return () => window.removeEventListener('resize', updateScale);
-  }, [activeResumeId, activeResume, isMobile, isEditorOpen, editorWidth, view]);
+  }, [activeResumeId, activeResume?.data?.designConfig?.pageSize, isMobile, isEditorOpen, editorWidth, view]);
 
-  const [filterCols, setFilterCols] = useState('all'); // 'all', 1, 2
-  const [filterHeadshot, setFilterHeadshot] = useState('all'); // 'all', true, false
+  const [filterCols, setFilterCols] = useState('all'); 
+  const [filterHeadshot, setFilterHeadshot] = useState('all'); 
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const searchInputRef = useRef(null);
-  
   const [resumeToDelete, setResumeToDelete] = useState(null);
   const [renamingResumeId, setRenamingResumeId] = useState(null);
   const [renamingValue, setRenamingValue] = useState("");
@@ -1144,7 +1282,7 @@ export default function App() {
 
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
-  const templateInputRef = useRef(null); // NEW: Ref for custom template uploads
+  const templateInputRef = useRef(null); 
 
   const updateDesign = (key, value) => {
     setResumes(prev => prev.map(r => {
@@ -1160,6 +1298,7 @@ export default function App() {
         }
       }
     }));
+    triggerSaveIndicator();
   };
 
   const handleElementMouseDown = (e, el) => {
@@ -1189,7 +1328,10 @@ export default function App() {
       }));
     };
     
-    const handleElementMouseUp = () => setDraggingElementId(null);
+    const handleElementMouseUp = () => {
+      setDraggingElementId(null);
+      triggerSaveIndicator();
+    };
     
     if (draggingElementId) {
       window.addEventListener('mousemove', handleElementMouseMove);
@@ -1204,13 +1346,12 @@ export default function App() {
       window.removeEventListener('mousemove', handleElementMouseMove);
       window.removeEventListener('mouseup', handleElementMouseUp);
     };
-  }, [draggingElementId, elementDragOffset, activeResumeId, isDragging, previewScale]);
+  }, [draggingElementId, elementDragOffset, activeResumeId, isDragging, previewScale, triggerSaveIndicator]);
 
   const handleMouseDown = useCallback((e) => { e.preventDefault(); setIsDragging(true); }, []);
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      // With sidebar gone, e.clientX maps directly to editorWidth.
       let newWidth = e.clientX;
       if (newWidth < 280) newWidth = 280;
       if (newWidth > 700) newWidth = 700;
@@ -1261,7 +1402,8 @@ export default function App() {
         }
       };
     }));
-  }, [activeResumeId]);
+    triggerSaveIndicator();
+  }, [activeResumeId, triggerSaveIndicator]);
 
   const insertBullet = useCallback((id) => {
     const currentVal = formData[id] || '';
@@ -1298,14 +1440,12 @@ export default function App() {
       const lines = textBeforeCursor.split('\n');
       const currentLine = lines[lines.length - 1];
       
-      // Check if the current line starts with a bullet/dash/asterisk
       const bulletMatch = currentLine.match(/^([•\-\*]\s*)/);
       
       if (bulletMatch) {
         e.preventDefault();
         const bullet = bulletMatch[1];
         
-        // If hitting Enter on an empty bullet, remove it instead (to exit list)
         if (currentLine.trim() === bullet.trim()) {
           const newTextBefore = textBeforeCursor.substring(0, textBeforeCursor.length - bullet.length);
           handleChange(id, newTextBefore + '\n' + textAfterCursor);
@@ -1314,7 +1454,6 @@ export default function App() {
              if (el) el.setSelectionRange(newTextBefore.length + 1, newTextBefore.length + 1);
           }, 0);
         } else {
-          // Auto-insert the next bullet
           const newText = textBeforeCursor + '\n' + bullet + textAfterCursor;
           handleChange(id, newText);
           const newCursorPos = cursorPosition + 1 + bullet.length;
@@ -1341,7 +1480,8 @@ export default function App() {
         }
       };
     }));
-  }, [activeResumeId]);
+    triggerSaveIndicator();
+  }, [activeResumeId, triggerSaveIndicator]);
 
   const handleImageUpload = (e, id) => {
     const file = e.target.files[0];
@@ -1369,20 +1509,17 @@ export default function App() {
     }, 2000);
   };
 
-  // NEW: Import Data directly into the currently active Editor
   const handleImportDataInEditor = () => {
     setIsUploading(true);
     showToast('Mapping your data to this template...', 'loading');
     
     setTimeout(() => {
-      // Map data from parsedGrahamDataMap to the matching IDs in the template
       const updatedFormData = { ...formData };
       Object.keys(parsedGrahamDataMap).forEach(key => {
         updatedFormData[key] = parsedGrahamDataMap[key];
       });
       setFormData(updatedFormData);
 
-      // Save defaults to the active resume state
       setResumes(prev => prev.map(r => {
         if (r.id !== activeResumeId) return r;
         return {
@@ -1404,7 +1541,6 @@ export default function App() {
     }, 1200);
   };
 
-  // NEW: Handler for uploading Custom Client Templates (Fully Functional API Call)
   const handleTemplateFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1416,20 +1552,15 @@ export default function App() {
       const uploadData = new FormData();
       uploadData.append('file', file);
 
-      // Call to your Python AI Backend (Make sure the server from the guide is running!)
       const response = await fetch('http://localhost:8000/extract-layout', {
         method: 'POST',
         body: uploadData,
       });
 
-      if (!response.ok) {
-        throw new Error('Backend extraction failed');
-      }
+      if (!response.ok) throw new Error('Backend extraction failed');
 
-      // The backend returns a perfectly formatted JSON schema matching our system!
       let customClientTemplate = await response.json();
-      
-      // RUN SEMANTIC ENHANCER ON THE IMPORTED TEMPLATE
+      customClientTemplate.designLocked = true; // Lock Custom Client Templates automatically
       customClientTemplate = enhanceImportedTemplate(customClientTemplate);
 
       handleSelectTemplate(customClientTemplate);
@@ -1438,14 +1569,14 @@ export default function App() {
       console.error("AI Engine Error:", error);
       showToast('Backend offline. Falling back to simulation.', 'error', 3000);
       
-      // Fallback to simulation if backend isn't running yet so the UI doesn't break during your testing
       setTimeout(() => {
         let fallbackTemplate = {
           id: `custom_client_${Date.now()}`,
           name: `Imported Layout: ${file.name.split('.')[0]}`,
           columns: 1,
           headshot: false,
-          designConfig: { fontFamily: 'Arial, sans-serif', accentColor: '#1e293b' },
+          designLocked: true, // Lock Fallback Layouts automatically
+          designConfig: { fontFamily: "'Inter', sans-serif", accentColor: '#1e293b' },
           page: { width: 900, minHeight: 1100 },
           elements: classicTemplate.elements.map(el => ({
             ...el,
@@ -1458,9 +1589,7 @@ export default function App() {
           }))
         };
         
-        // RUN SEMANTIC ENHANCER ON FALLBACK TOO
         fallbackTemplate = enhanceImportedTemplate(fallbackTemplate);
-        
         handleSelectTemplate(fallbackTemplate);
       }, 1500);
     } finally {
@@ -1474,8 +1603,6 @@ export default function App() {
       setResumes(prev => prev.map(r => {
         if (r.id !== activeResumeId) return r;
         
-        const preservedFont = r.data.designConfig?.fontFamily || 'Arial, sans-serif';
-
         const mergedElements = templateSchema.elements.map(el => {
           if (el.type === 'shape' || el.type === 'icon') return el;
           return { 
@@ -1485,7 +1612,6 @@ export default function App() {
           };
         });
         
-        // Ensure any dynamically added jobs (like job6, job7) are transferred over when switching templates
         const existingJobTitles = r.data.elements.filter(e => e.id.match(/^job(\d+)Title$/)).map(e => e.id);
         const newJobTitles = mergedElements.filter(e => e.id.match(/^job(\d+)Title$/)).map(e => e.id);
         const dynamicallyAddedJobs = existingJobTitles.filter(id => !newJobTitles.includes(id));
@@ -1507,7 +1633,14 @@ export default function App() {
           data: { 
             ...templateSchema, 
             elements: mergedElements,
-            designConfig: { accentColor: templateSchema.defaultAccent, sidebarColor: templateSchema.leftBg, fontFamily: preservedFont }
+            designConfig: { 
+              ...templateSchema.designConfig,
+              accentColor: templateSchema.defaultAccent, 
+              sidebarColor: templateSchema.leftBg, 
+              primaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
+              secondaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
+              baseFontSize: 11
+            }
           } 
         };
       }));
@@ -1533,7 +1666,14 @@ export default function App() {
       data: { 
         ...templateSchema, 
         elements: mergedElements,
-        designConfig: { accentColor: templateSchema.defaultAccent, sidebarColor: templateSchema.leftBg, fontFamily: 'Arial, sans-serif' }
+        designConfig: { 
+          ...templateSchema.designConfig,
+          accentColor: templateSchema.defaultAccent, 
+          sidebarColor: templateSchema.leftBg, 
+          primaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
+          secondaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
+          baseFontSize: 11
+        }
       }
     };
 
@@ -1570,7 +1710,14 @@ export default function App() {
       data: { 
         ...wizardTemplate, 
         elements: mergedElements,
-        designConfig: { accentColor: wizardTemplate.defaultAccent, sidebarColor: wizardTemplate.leftBg, fontFamily: 'Arial, sans-serif' }
+        designConfig: { 
+          ...wizardTemplate.designConfig,
+          accentColor: wizardTemplate.defaultAccent, 
+          sidebarColor: wizardTemplate.leftBg, 
+          primaryFont: wizardTemplate.designConfig?.fontFamily || "'Inter', sans-serif",
+          secondaryFont: wizardTemplate.designConfig?.fontFamily || "'Inter', sans-serif",
+          baseFontSize: 11
+        }
       }
     };
 
@@ -1650,15 +1797,12 @@ export default function App() {
     setIsExportMenuOpen(false);
     setExportingFormat(format);
     
-    // Simulate a brief generation delay for UI feedback, then trigger instant download
     setTimeout(() => {
       const fileName = (activeResume ? activeResume.name : 'Resume').replace(/\s+/g, '_');
       
       if (format === 'PDF') {
-        // Triggers the browser's native, instant PDF generation (using the hidden @media print styles we added below)
         window.print();
       } else {
-        // Extract raw data from the form to bundle into the DOCX/PPTX file
         let content = `Resume Export: ${format}\n\n`;
         if (activeResume) {
            Object.entries(formData).forEach(([key, val]) => {
@@ -1668,7 +1812,6 @@ export default function App() {
            });
         }
         
-        // Generate actual file blob and force instant download
         if (format === 'DOCX') {
           triggerDownload(`${fileName}.docx`, content, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } else if (format === 'PPTX') {
@@ -1720,7 +1863,6 @@ export default function App() {
     setFormData(prev => ({ ...prev, [`job${newJobNum}Title`]: '', [`job${newJobNum}Desc`]: '' }));
     showToast(`Added empty fields for Job ${newJobNum}`, 'success', 2000);
     
-    // Auto scroll the editor pane to the bottom
     setTimeout(() => {
       const editorPane = document.getElementById('editor-content-pane');
       if (editorPane) editorPane.scrollTop = editorPane.scrollHeight;
@@ -1812,7 +1954,6 @@ export default function App() {
                       <h3 className="text-xl font-extrabold text-slate-800 mb-6 text-center">Choose a starting layout</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
                          {ALL_TEMPLATES.map(tpl => {
-                           // Mock formData for wizard preview
                            const mockForm = {};
                            tpl.elements.forEach(el => {
                              if(wizardData[el.id] && wizardData[el.id].trim() !== '') mockForm[el.id] = wizardData[el.id];
@@ -1820,7 +1961,6 @@ export default function App() {
                            });
                            return (
                             <div key={tpl.id} onClick={() => { setWizardTemplate(tpl); setWizardStep(3); }} className="group cursor-pointer flex flex-col items-center">
-                               {/* EXACT TIGHT BOUNDING BOX (Scale 0.18) */}
                                <div 
                                  className={`relative bg-white rounded-lg shadow-sm border-2 overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md ${wizardTemplate?.id === tpl.id ? 'border-violet-500 ring-2 ring-violet-500/20' : 'border-slate-200 group-hover:border-violet-400'}`}
                                  style={{ width: `${tpl.page.width * 0.18}px`, height: `${tpl.page.minHeight * 0.18}px` }}
@@ -1842,7 +1982,6 @@ export default function App() {
                         <h3 className="text-xl font-extrabold text-slate-800 mb-1">Looking good?</h3>
                         <p className="text-xs text-slate-500 font-medium">You can customize colors, fonts, and add sections next.</p>
                       </div>
-                      {/* EXACT TIGHT BOUNDING BOX (Scale 0.35) */}
                       <div 
                         className="bg-white rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] border border-slate-200 overflow-hidden flex-shrink-0 relative"
                         style={{ width: `${wizardTemplate.page.width * 0.35}px`, height: `${wizardTemplate.page.minHeight * 0.35}px` }}
@@ -1882,15 +2021,61 @@ export default function App() {
       {/* --- GLOBAL TOP HEADER NAV --- */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0 z-40 relative shadow-sm">
         
-        {/* Header Left: Logo & Breadcrumbs */}
+        {/* Header Left: Logo & Editor Controls */}
         <div className="flex items-center gap-4 h-full">
           {view === 'editor' ? (
-            <button onClick={() => setView('gallery')} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-violet-600 transition-colors mr-2 group">
-              <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-violet-50 flex items-center justify-center transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            <>
+              <button onClick={() => setView('gallery')} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-violet-600 transition-colors mr-2 group">
+                <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-violet-50 flex items-center justify-center transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                </div>
+                <span className="hidden sm:inline">Dashboard</span>
+              </button>
+              
+              <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
+              
+              <div className="flex items-center gap-2 overflow-hidden">
+                {/* NEW: Inline Editable Document Title */}
+                {isEditingTitle ? (
+                  <input 
+                    autoFocus 
+                    value={tempTitle} 
+                    onChange={e => setTempTitle(e.target.value)} 
+                    onBlur={handleTitleSave} 
+                    onKeyDown={handleTitleKeyDown} 
+                    className="text-sm font-semibold text-slate-800 bg-white border border-violet-500 rounded px-2 py-0.5 outline-none max-w-[150px] sm:max-w-xs focus:ring-2 focus:ring-violet-500/20 transition-shadow" 
+                  />
+                ) : (
+                  <h1 
+                    onDoubleClick={handleTitleDoubleClick} 
+                    className="text-sm font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-xs cursor-text hover:bg-slate-100 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-slate-200"
+                    title="Double click to rename"
+                  >
+                    {activeResume.name}
+                  </h1>
+                )}
+                
+                {/* DYNAMIC: Cloud Saved Indicator */}
+                <span className={`hidden md:flex items-center gap-1.5 ml-2 text-[11px] font-semibold whitespace-nowrap transition-colors duration-300 ${saveStatus === 'saving' ? 'text-violet-500' : 'text-slate-400'}`}>
+                  {saveStatus === 'saving' ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <IconRenderer type="cloud" size="14" color="currentColor" /> Saved
+                    </>
+                  )}
+                </span>
+
+                {/* MOVED: Show/Hide Editor Button */}
+                <button onClick={() => setIsEditorOpen(!isEditorOpen)} className={`ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm ${isEditorOpen ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}>
+                  <svg className="w-3.5 h-3.5 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v18m12-9H9m12-7a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5z"></path></svg> 
+                  {isEditorOpen ? 'Hide Editor' : 'Show Editor'}
+                </button>
               </div>
-              <span className="hidden sm:inline">Dashboard</span>
-            </button>
+            </>
           ) : (
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setView('gallery')}>
               <div className="w-8 h-8 rounded bg-violet-600 flex items-center justify-center text-white shadow-sm">
@@ -1899,22 +2084,9 @@ export default function App() {
               <h2 className="text-slate-800 font-bold text-lg tracking-tight hidden sm:block">ResumeFlow</h2>
             </div>
           )}
-
-          {view === 'editor' && activeResume && (
-            <>
-              <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-              <div className="flex items-center gap-2 overflow-hidden">
-                <h1 className="text-sm font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-xs">{activeResume.name}</h1>
-                <span className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-600 shadow-sm whitespace-nowrap">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
-                  Saved Locally
-                </span>
-              </div>
-            </>
-          )}
         </div>
 
-        {/* Header Right: Actions based on View */}
+        {/* Header Right: Global Actions */}
         <div className="flex items-center gap-3">
           {view === 'gallery' ? (
             <>
@@ -1933,7 +2105,6 @@ export default function App() {
             </>
           ) : (
             <>
-              {/* NEW: Import Data button inside the Editor */}
               <button onClick={handleImportDataInEditor} disabled={isUploading} className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-sm disabled:opacity-50">
                 {isUploading ? (
                    <svg className="animate-spin h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -1943,11 +2114,6 @@ export default function App() {
                 Import Data
               </button>
 
-              <button onClick={() => setIsEditorOpen(!isEditorOpen)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${isEditorOpen ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
-                <svg className="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v18m12-9H9m12-7a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5z"></path></svg> 
-                {isEditorOpen ? 'Hide Editor' : 'Show Editor'}
-              </button>
-              
               <div className="relative" ref={exportMenuRef}>
                 <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} disabled={exportingFormat !== null} className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center gap-1.5 disabled:opacity-70">
                   {exportingFormat ? (
@@ -1959,7 +2125,6 @@ export default function App() {
                   {!exportingFormat && <svg className={`w-3.5 h-3.5 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>}
                 </button>
 
-                {/* Export Dropdown */}
                 {isExportMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Download As</div>
@@ -1986,10 +2151,8 @@ export default function App() {
         {/* === VIEW 1: DASHBOARD GALLERY === */}
         {view === 'gallery' && (
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 relative">
-            {/* REMOVED max-w-7xl to allow full width expansion on large monitors */}
             <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8 sm:py-12">
               
-              {/* Premium Hero Banner */}
               <div className="mb-12 bg-gradient-to-br from-violet-900 via-indigo-800 to-violet-600 rounded-3xl p-8 sm:p-10 md:p-12 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-white opacity-10 blur-3xl pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-violet-400 opacity-20 blur-3xl pointer-events-none"></div>
@@ -2016,7 +2179,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Search Bar inside Hero */}
                 <div className="relative z-10 w-full md:w-auto flex-shrink-0">
                    <div className="flex items-center bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 focus-within:bg-white/20 focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-400/20 rounded-full px-5 py-3.5 transition-all duration-300 w-full md:w-80 shadow-lg">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -2031,7 +2193,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* RECENT FILES SECTION */}
               {resumes.length > 0 && !pendingExtractedData && (
                 <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex items-center justify-between mb-6">
@@ -2041,7 +2202,6 @@ export default function App() {
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {resumes.map(resume => (
                       <div key={resume.id} onClick={() => { setActiveResumeId(resume.id); setView('editor'); }} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 hover:shadow-lg hover:border-violet-300 hover:-translate-y-1 transition-all cursor-pointer group flex flex-col h-48 relative">
-                        {/* Document Thumbnail Mock */}
                         <div className="flex-1 bg-slate-50 rounded-xl border border-slate-100 mb-4 flex flex-col items-center justify-center overflow-hidden relative">
                            <div className="w-12 h-16 bg-white shadow-sm border border-slate-200 rounded p-1.5 flex flex-col gap-1">
                               <div className="w-full h-1 bg-slate-200 rounded-full"></div>
@@ -2068,7 +2228,6 @@ export default function App() {
                           <p className="text-[10px] text-slate-400 font-medium">{resume.lastModified || 'Saved recently'}</p>
                         </div>
 
-                        {/* Hover Actions */}
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
                           <button onClick={(e) => { e.stopPropagation(); startRename(e, resume.id, resume.name); }} className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-violet-600 hover:border-violet-300 shadow-sm rounded-md transition-all" title="Rename">
                             <IconRenderer type="pencil" size="14" />
@@ -2083,12 +2242,10 @@ export default function App() {
                 </div>
               )}
 
-              {/* TEMPLATE GALLERY SECTION */}
               <div id="templates-section">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                   <h2 className="text-xl font-bold text-slate-800 tracking-tight">Template Gallery</h2>
                   
-                  {/* Horizontal Filters */}
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Columns</span>
@@ -2106,7 +2263,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Grid Container */}
                 <div className="flex flex-wrap gap-8 pb-12 justify-center sm:justify-start">
                   {filteredTemplates.map(tpl => {
                     const mockFormData = {};
@@ -2118,15 +2274,12 @@ export default function App() {
                       mockFormData[e.id] = val;
                     });
                     
-                    // Fixed gallery scale of 0.25 fits nicely in most grids
                     const scale = 0.25;
                     const scaledW = tpl.page.width * scale;
                     const scaledH = tpl.page.minHeight * scale;
                     
                     return (
                     <div key={tpl.id} className="group flex flex-col items-center">
-                      
-                      {/* TIGHT BOUNDING BOX CONTAINER FOR PERFECT BORDER/SHADOW */}
                       <div 
                         onClick={() => handleSelectTemplate(tpl)}
                         className="relative bg-white rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200 overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] hover:border-violet-400 flex-shrink-0"
@@ -2136,7 +2289,6 @@ export default function App() {
                             <RenderTemplate resumeData={{data: tpl}} formData={mockFormData} />
                          </div>
 
-                         {/* Hover Action Overlay */}
                          <div className="absolute inset-0 bg-slate-900/5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[1px]">
                            <button className="bg-violet-600 text-white font-bold px-5 py-2.5 rounded-full shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 ease-out flex items-center gap-2 text-sm">
                              {pendingExtractedData ? 'Map Data' : (activeResume ? 'Switch Layout' : 'Use Template')}
@@ -2175,7 +2327,6 @@ export default function App() {
                 className="flex flex-col h-full bg-white border-r border-slate-200 flex-shrink-0 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)] absolute md:relative transition-transform duration-300 ease-in-out" 
                 style={{ width: isMobile ? '100%' : `${editorWidth}px`, maxWidth: '100vw' }}
               >
-                {/* Editor Tabs */}
                 <div className="flex border-b border-slate-200 flex-shrink-0 bg-white">
                   <button onClick={() => setActiveEditorTab('content')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'content' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Content</button>
                   <button onClick={() => setActiveEditorTab('design')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'design' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Design</button>
@@ -2187,7 +2338,6 @@ export default function App() {
                   {/* TEMPLATES TAB */}
                   {activeEditorTab === 'templates' && (
                     <div className="space-y-6 animate-in fade-in duration-200">
-                      {/* Upload Custom Template Section */}
                       <div className="bg-violet-50 rounded-xl p-4 sm:p-5 border border-violet-100 shadow-sm">
                         <h3 className="text-xs font-bold text-violet-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
@@ -2210,7 +2360,6 @@ export default function App() {
 
                       <div className="h-px bg-slate-100 w-full my-2"></div>
 
-                      {/* Standard Template Gallery */}
                       <div>
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
@@ -2220,12 +2369,10 @@ export default function App() {
                           {ALL_TEMPLATES.map(tpl => {
                             const isCurrent = activeResume.data.id === tpl.id || (activeResume.data.name === tpl.name);
                             
-                            // Visual Scaling variables
-                            const scale = 0.15; // Makes the thumbnail approx 135px wide
+                            const scale = 0.15;
                             const scaledW = tpl.page.width * scale;
                             const scaledH = tpl.page.minHeight * scale;
                             
-                            // Map the current live editor data to the thumbnail preview
                             const mockFormData = {};
                             tpl.elements.forEach(e => {
                               let val = formData[e.id] !== undefined ? formData[e.id] : e.defaultVal;
@@ -2261,63 +2408,129 @@ export default function App() {
                   {/* DESIGN TAB */}
                   {activeEditorTab === 'design' && (
                     <div className="space-y-6 animate-in fade-in duration-200">
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                          <IconRenderer type="settings" size="14" color="#94a3b8" /> Font Style
-                        </label>
-                        <select 
-                          value={activeResume.data.designConfig?.fontFamily || 'Arial, sans-serif'} 
-                          onChange={(e) => updateDesign('fontFamily', e.target.value)}
-                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
-                        >
-                          <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
-                          <option value="'Arial', sans-serif">Arial (Classic Sans)</option>
-                          <option value="'Helvetica', sans-serif">Helvetica (Clean Sans)</option>
-                          <option value="'Georgia', serif">Georgia (Elegant Serif)</option>
-                          <option value="'Times New Roman', serif">Times New Roman (Formal Serif)</option>
-                          <option value="'Roboto Mono', monospace">Roboto Mono (Tech Monospace)</option>
-                          <option value="'Trebuchet MS', sans-serif">Trebuchet MS (Friendly Sans)</option>
-                        </select>
-                      </div>
-
-                      <div className="h-px bg-slate-100 w-full my-2"></div>
-
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Primary Theme Color</label>
-                        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
-                            <input 
-                              type="color" 
-                              value={activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent} 
-                              onChange={(e) => updateDesign('accentColor', e.target.value)}
-                              className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent}</div>
-                            <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Applied to headers and icons</div>
-                          </div>
+                      {activeResume.data.designLocked ? (
+                        <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-3 mt-2">
+                           <div className="w-12 h-12 bg-slate-200/50 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                              <IconRenderer type="lock" size="20" color="#94a3b8" />
+                           </div>
+                           <h4 className="text-sm font-bold text-slate-700">Design Locked</h4>
+                           <p className="text-xs text-slate-500 leading-relaxed max-w-[250px] mx-auto">This template uses a highly customized layout. Structural design controls are locked to preserve its visual integrity.</p>
                         </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
+                              <IconRenderer type="book" size="14" color="#94a3b8" /> Page Size Format
+                            </label>
+                            <select 
+                              value={activeResume.data.designConfig?.pageSize || 'default'} 
+                              onChange={(e) => updateDesign('pageSize', e.target.value === 'default' ? null : e.target.value)}
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
+                            >
+                              <option value="default">Template Default</option>
+                              {Object.keys(PAGE_FORMATS).map(format => (
+                                <option key={format} value={format}>{format}</option>
+                              ))}
+                            </select>
+                          </div>
 
-                      {activeResume.data.columns === 2 && (
-                        <div>
-                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Sidebar Background</label>
-                          <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
-                              <input 
-                                type="color" 
-                                value={activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg} 
-                                onChange={(e) => updateDesign('sidebarColor', e.target.value)}
-                                className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg}</div>
-                              <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Left column fill color</div>
+                          <div className="h-px bg-slate-100 w-full my-2"></div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
+                              <IconRenderer type="settings" size="14" color="#94a3b8" /> Typography
+                            </label>
+                            <div className="space-y-5 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Primary Font (Headers)</label>
+                                <select 
+                                  value={activeResume.data.designConfig?.primaryFont || "'Inter', sans-serif"} 
+                                  onChange={(e) => updateDesign('primaryFont', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
+                                >
+                                  <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
+                                  <option value="'Arial', sans-serif">Arial (Classic Sans)</option>
+                                  <option value="'Helvetica', sans-serif">Helvetica (Clean Sans)</option>
+                                  <option value="'Georgia', serif">Georgia (Elegant Serif)</option>
+                                  <option value="'Times New Roman', serif">Times New Roman (Formal Serif)</option>
+                                  <option value="'Roboto Mono', monospace">Roboto Mono (Tech Monospace)</option>
+                                  <option value="'Trebuchet MS', sans-serif">Trebuchet MS (Friendly Sans)</option>
+                                </select>
+                              </div>
+                              
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Secondary Font (Body)</label>
+                                <select 
+                                  value={activeResume.data.designConfig?.secondaryFont || "'Inter', sans-serif"} 
+                                  onChange={(e) => updateDesign('secondaryFont', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
+                                >
+                                  <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
+                                  <option value="'Arial', sans-serif">Arial (Classic Sans)</option>
+                                  <option value="'Helvetica', sans-serif">Helvetica (Clean Sans)</option>
+                                  <option value="'Georgia', serif">Georgia (Elegant Serif)</option>
+                                  <option value="'Times New Roman', serif">Times New Roman (Formal Serif)</option>
+                                  <option value="'Roboto Mono', monospace">Roboto Mono (Tech Monospace)</option>
+                                  <option value="'Trebuchet MS', sans-serif">Trebuchet MS (Friendly Sans)</option>
+                                </select>
+                              </div>
+
+                              <div className="pt-2">
+                                <div className="flex justify-between items-center mb-4">
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Base Font Size</label>
+                                  <span className="text-xs font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded">{activeResume.data.designConfig?.baseFontSize || 11}pt</span>
+                                </div>
+                                <input 
+                                  type="range" 
+                                  min="8" max="16" step="0.5"
+                                  value={activeResume.data.designConfig?.baseFontSize || 11}
+                                  onChange={(e) => updateDesign('baseFontSize', parseFloat(e.target.value))}
+                                  className="premium-slider"
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
+
+                          <div className="h-px bg-slate-100 w-full my-2"></div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Primary Theme Color</label>
+                            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
+                                <input 
+                                  type="color" 
+                                  value={activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent} 
+                                  onChange={(e) => updateDesign('accentColor', e.target.value)}
+                                  className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent}</div>
+                                <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Applied to headers and icons</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {activeResume.data.columns === 2 && (
+                            <div>
+                              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Sidebar Background</label>
+                              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
+                                  <input 
+                                    type="color" 
+                                    value={activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg} 
+                                    onChange={(e) => updateDesign('sidebarColor', e.target.value)}
+                                    className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg}</div>
+                                  <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Left column fill color</div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -2415,7 +2628,6 @@ export default function App() {
                         )
                       })}
                       
-                      {/* DYNAMIC ADD JOB BUTTON */}
                       <div className="pt-4 border-t border-slate-100 flex justify-center pb-2">
                         <button onClick={handleAddJob} className="flex items-center gap-2 text-sm font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-4 py-2.5 rounded-xl transition-colors border border-violet-100 w-full justify-center shadow-sm">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
@@ -2428,22 +2640,24 @@ export default function App() {
               </div>
             )}
 
-            {/* Desktop Drag Resizer */}
             {isEditorOpen && !isMobile && (
               <div onMouseDown={handleMouseDown} className={`w-1 flex-shrink-0 cursor-col-resize hover:bg-violet-400 transition-colors z-20 ${isDragging ? 'bg-violet-500' : 'bg-transparent'}`}></div>
             )}
 
-            {/* Right Pane: Live Document Preview */}
-            <div ref={rightPaneRef} className="flex-1 bg-slate-200/50 flex justify-center items-start overflow-auto p-4 sm:p-8 lg:p-12 custom-scrollbar relative w-full">
+            <div ref={rightPaneRef} className="flex-1 bg-slate-200 flex justify-center items-start overflow-auto p-4 sm:p-8 lg:p-12 custom-scrollbar relative w-full">
               {activeResume && (() => {
-                const scaledWidth = activeResume.data.page.width * previewScale;
-                const scaledHeight = activeResume.data.page.minHeight * previewScale;
+                const design = activeResume.data.designConfig || {};
+                const pWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : activeResume.data.page.width;
+                const pHeight = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].minHeight : activeResume.data.page.minHeight;
+                
+                const scaledWidth = pWidth * previewScale;
+                const scaledHeight = pHeight * previewScale;
                 
                 return (
                   <div className="relative shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded transition-all duration-200 ease-in-out z-10 ring-1 ring-slate-900/5 bg-white overflow-hidden" 
                        style={{ width: `${scaledWidth}px`, minHeight: `${scaledHeight}px` }}>
                     
-                    <div id="printable-resume" style={{ width: `${activeResume.data.page.width}px`, minHeight: `${activeResume.data.page.minHeight}px`, transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
+                    <div id="printable-resume" style={{ width: `${pWidth}px`, minHeight: `${pHeight}px`, transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
                       <RenderTemplate 
                          resumeData={activeResume} 
                          formData={formData} 
@@ -2460,7 +2674,6 @@ export default function App() {
         )}
       </div>
 
-      {/* --- GLOBAL TOAST NOTIFICATION --- */}
       {toast.show && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${toast.type === 'loading' ? 'bg-slate-800 border-slate-700 text-white' : toast.type === 'success' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
@@ -2487,9 +2700,42 @@ export default function App() {
         .custom-scrollbar-dark::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
         .custom-scrollbar-dark:hover::-webkit-scrollbar-thumb { background-color: #475569; }
 
+        /* Premium Range Slider Styling */
+        .premium-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 6px;
+          background: #e2e8f0;
+          border-radius: 4px;
+          outline: none;
+        }
+        .premium-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 24px;
+          border-radius: 6px;
+          background: #7c3aed;
+          cursor: pointer;
+          border: 2px solid #ffffff;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+          transition: transform 0.1s;
+        }
+        .premium-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
+        }
+
         @media print {
           body * {
             visibility: hidden !important;
+          }
+          .desk-gap {
+            display: none !important;
+          }
+          .resume-block {
+            margin-top: var(--orig-mt) !important;
+            page-break-inside: avoid;
           }
           #printable-resume, #printable-resume * {
             visibility: visible !important;
