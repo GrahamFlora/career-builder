@@ -824,58 +824,107 @@ const parsedGrahamDataMap = {
   job5Desc: 'A technical support to Trend Micro Home and Home Office users powered by Trend Micro Smart protection Network cloud security infrastructure that stops threats in cyberspace. Provides customer support with their account management, product inquiries, and to deliver best solutions to product concerns.'
 };
 
-// --- SEMANTIC TEMPLATE ENHANCER ---
+// --- ENHANCED SEMANTIC TEMPLATE MAPPER ---
 const enhanceImportedTemplate = (schema) => {
   let maxFontSize = 0;
   schema.elements.forEach(el => { if (el.fontSize > maxFontSize) maxFontSize = el.fontSize; });
 
-  let jobTitleCounter = 1;
-  let jobDescCounter = 1;
+  const usedIds = new Set();
+  let headerCounter = 1;
+  let sectionCounter = 1;
+  let listCounter = 1;
+  let foundFullName = false;
 
-  schema.elements = schema.elements.map((el) => {
+  schema.elements = schema.elements.map((el, index) => {
       let newId = el.id;
       let newLabel = el.label;
-      let isMultiline = el.defaultVal.length > 50 || el.defaultVal.includes('\n');
       const textLower = el.defaultVal.toLowerCase();
       const textLen = el.defaultVal.length;
+      const isBulletStr = el.defaultVal.includes('•') || el.defaultVal.includes('-');
 
-      // Intelligent Label & ID Mapping based on content and size
-      if (el.fontSize >= maxFontSize && textLen < 40 && el.id.includes('imported')) {
-          newId = 'fullName'; newLabel = 'Full Name';
-      } else if (textLower.includes('experience') && textLen < 30) {
-          newId = 'expTitle'; newLabel = 'Experience Header';
+      let proposedId = null;
+
+      // 1. Core Strict Matching (Prioritizing Keywords First!)
+      if (textLower.includes('experience') && textLen < 30) {
+          proposedId = 'expTitle'; newLabel = 'Experience Header';
       } else if (textLower.includes('education') && textLen < 30) {
-          newId = 'eduTitle'; newLabel = 'Education Header';
+          proposedId = 'eduTitle'; newLabel = 'Education Header';
       } else if (textLower.includes('skill') && textLen < 30) {
-          newId = 'techSkillsTitle'; newLabel = 'Skills Header';
+          proposedId = 'techSkillsTitle'; newLabel = 'Skills Header';
+      } else if (textLower.includes('certification') && textLen < 35) {
+          proposedId = 'certsTitle'; newLabel = 'Certifications Header';
+      } else if (textLower.includes('project') && textLen < 30) {
+          proposedId = 'projectsTitle'; newLabel = 'Projects Header';
+      } else if (textLower.includes('language') && textLen < 30) {
+          proposedId = 'langTitle'; newLabel = 'Languages Header';
+      } else if (textLower.includes('reference') && textLen < 30) {
+          proposedId = 'refTitle'; newLabel = 'References Header';
       } else if ((textLower.includes('profile') || textLower.includes('summary')) && textLen < 30) {
-          newId = 'summaryTitle'; newLabel = 'Summary Header';
-      } else if (textLower.includes('contact') && textLen < 30) {
-          newId = 'contactTitle'; newLabel = 'Contact Header';
+          proposedId = 'summaryTitle'; newLabel = 'Summary Header';
       } else if (el.defaultVal.includes('@') && !el.defaultVal.includes(' ')) {
-          newId = 'email'; newLabel = 'Email Address';
+          proposedId = 'email'; newLabel = 'Email Address';
       } else if (/^\+?[\d\s\-\(\)]{7,20}$/.test(el.defaultVal.trim())) {
-          newId = 'phone'; newLabel = 'Phone Number';
+          proposedId = 'phone'; newLabel = 'Phone Number';
       } else if (textLower.includes('linkedin.com')) {
-          newId = 'linkedin'; newLabel = 'LinkedIn';
-      } else if (textLen < 45) {
-          newLabel = el.defaultVal; 
-          
-          if ((el.fontWeight === 'bold' || el.fontSize > 11) && el.fontSize < maxFontSize && el.id.includes('imported')) {
-              newId = `job${jobTitleCounter}Title`;
-              jobTitleCounter++;
+          proposedId = 'linkedin'; newLabel = 'LinkedIn';
+      } else if (el.fontSize >= maxFontSize && textLen < 40 && !foundFullName) {
+          // Fallback: Assign Full Name ONLY ONCE
+          proposedId = 'fullName'; newLabel = 'Full Name';
+          foundFullName = true;
+      } 
+      // 2. Intelligent Content Labeling (Improves the Sidebar!)
+      else if (isBulletStr || el.defaultVal.includes('\n•')) {
+          proposedId = `bulletList${listCounter++}`;
+          newLabel = 'List / Bullet Points';
+      } else if (el.fontWeight === 'bold' || el.fontSize > 11) {
+          if (textLen < 60) {
+              proposedId = `header_${headerCounter++}`;
+              // Make the label exactly match what the header says (e.g., "Company Name")
+              newLabel = el.defaultVal.substring(0, 25) + (textLen > 25 ? '...' : ''); 
+          } else {
+              proposedId = `bodyText_${sectionCounter++}`;
+              newLabel = 'Description';
           }
       } else {
-          newLabel = "Description / Body Text";
-          if (jobDescCounter < jobTitleCounter && el.id.includes('imported')) {
-              newId = `job${jobDescCounter}Desc`;
-              jobDescCounter++;
-          } else if (newId.includes('imported')) {
-              newId = 'summary'; 
-          }
+          proposedId = `bodyText_${sectionCounter++}`;
+          newLabel = 'Text Block';
       }
-      
-      return { ...el, id: newId, label: newLabel, isMultiline };
+
+      // 3. ENFORCE UNIQUE IDs (Fixes the "References" Overwriting Bug)
+      if (proposedId && !usedIds.has(proposedId)) {
+          newId = proposedId;
+      } else if (proposedId) {
+          newId = `${proposedId}_${Math.random().toString(36).substr(2, 4)}`;
+      }
+      usedIds.add(newId);
+
+      // 4. SMART AUTO-SPACING (Adds breathing room above and below sections)
+      let autoMarginTop = el.marginTop || 4;
+      let autoMarginBottom = el.marginBottom || 4;
+
+      if (newId === 'fullName') {
+          autoMarginBottom = 12; // Extra space under name
+      } else if (newId.includes('Title') || newId.includes('header_')) {
+          // It's a Header: Big space above (unless it's the very first item), small space below
+          autoMarginTop = index === 0 ? 0 : 28; 
+          autoMarginBottom = 8;
+      } else if (newId === 'email' || newId === 'phone' || newId === 'linkedin' || newId === 'title') {
+          // Subtitle / Contact info spacing
+          autoMarginBottom = 8;
+      } else {
+          // Body Text / Bullet points: Add space BELOW so it doesn't hit the next header
+          autoMarginTop = 4;
+          autoMarginBottom = 20; 
+      }
+
+      return { 
+          ...el, 
+          id: newId, 
+          label: newLabel, 
+          isMultiline: textLen > 50 || el.defaultVal.includes('\n') || isBulletStr,
+          marginTop: autoMarginTop,
+          marginBottom: autoMarginBottom
+      };
   });
   return schema;
 };
@@ -1691,27 +1740,40 @@ const updateElementAlign = useCallback((id, alignment) => {
 
         const flushElement = () => {
             let textToFlush = currentText.trim();
-            if (isBullet && textToFlush && !textToFlush.startsWith("•")) {
+            const startsWithManualBullet = /^[•\-\*]/.test(textToFlush);
+
+            if (isBullet && textToFlush && !startsWithManualBullet) {
                textToFlush = "• " + textToFlush;
             }
+
+            const isNowBullet = isBullet || startsWithManualBullet;
             
             if (textToFlush) {
-                elements.push({
-                    id: `importedText_${elements.length}_${Math.random().toString(36).substr(2, 5)}`,
-                    col: col,
-                    label: 'Imported Text',
-                    fontSize: currentFontSize,
-                    fontWeight: currentIsBold ? 'bold' : 'normal',
-                    fontStyle: currentIsItalic ? 'italic' : 'normal',
-                    textAlign: textAlign,
-                    color: currentColor,
-                    defaultVal: textToFlush,
-                    offsetX: 0, offsetY: 0,
-                    width: '100%', // FORCES FLEXBOX TO ALLOW CENTERING
-                    isMultiline: true, // FORCES THE TEXTAREA SO YOU CAN PRESS ENTER
-                    marginTop: currentIsBold && currentFontSize >= 13 ? 16 : 4,
-                    marginBottom: 4
-                });
+                const lastEl = elements[elements.length - 1];
+                const lastWasBullet = lastEl && /^[•\-\*]/.test(lastEl.defaultVal.trim());
+
+                // FIX: Merge consecutive bullet points into the same block instead of duplicating fields!
+                if (lastEl && lastEl.col === col && isNowBullet && lastWasBullet) {
+                    lastEl.defaultVal += "\n\n" + textToFlush;
+                    lastEl.isMultiline = true;
+                } else {
+                    elements.push({
+                        id: `importedText_${elements.length}_${Math.random().toString(36).substr(2, 5)}`,
+                        col: col,
+                        label: 'Imported Text',
+                        fontSize: currentFontSize,
+                        fontWeight: currentIsBold ? 'bold' : 'normal',
+                        fontStyle: currentIsItalic ? 'italic' : 'normal',
+                        textAlign: textAlign,
+                        color: currentColor,
+                        defaultVal: textToFlush,
+                        offsetX: 0, offsetY: 0,
+                        width: '100%', 
+                        isMultiline: textToFlush.length > 50 || isNowBullet, 
+                        marginTop: currentIsBold && currentFontSize >= 13 ? 16 : 4,
+                        marginBottom: 4
+                    });
+                }
             }
             currentText = ""; 
         };
@@ -1751,7 +1813,8 @@ const updateElementAlign = useCallback((id, alignment) => {
                 if (child.nodeName === "w:t") {
                     currentText += child.textContent;
                 } else if (child.nodeName === "w:br") {
-                    flushElement(); // Split element on Shift+Enter
+                    // FIX: Respect soft-returns inside the same text field instead of flushing early
+                    currentText += "\n";
                 }
             }
         }
