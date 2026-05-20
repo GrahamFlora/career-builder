@@ -840,7 +840,7 @@ const enhanceImportedTemplate = (schema) => {
       const textLen = el.defaultVal.length;
 
       // Intelligent Label & ID Mapping based on content and size
-      if (el.fontSize === maxFontSize && textLen < 40) {
+      if (el.fontSize >= maxFontSize && textLen < 40 && el.id.includes('imported')) {
           newId = 'fullName'; newLabel = 'Full Name';
       } else if (textLower.includes('experience') && textLen < 30) {
           newId = 'expTitle'; newLabel = 'Experience Header';
@@ -861,13 +861,13 @@ const enhanceImportedTemplate = (schema) => {
       } else if (textLen < 45) {
           newLabel = el.defaultVal; 
           
-          if ((el.fontWeight === 'bold' || el.fontSize > 11) && el.fontSize < maxFontSize) {
+          if ((el.fontWeight === 'bold' || el.fontSize > 11) && el.fontSize < maxFontSize && el.id.includes('imported')) {
               newId = `job${jobTitleCounter}Title`;
               jobTitleCounter++;
           }
       } else {
           newLabel = "Description / Body Text";
-          if (jobDescCounter < jobTitleCounter) {
+          if (jobDescCounter < jobTitleCounter && el.id.includes('imported')) {
               newId = `job${jobDescCounter}Desc`;
               jobDescCounter++;
           } else if (newId.includes('imported')) {
@@ -913,13 +913,11 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
   const accent = design.accentColor || tpl.defaultAccent;
   const sidebarBg = design.sidebarColor || tpl.leftBg;
   
-  // NEW: Advanced Typography System with 'Inter' as the modern default fallback
   const primaryFont = design.primaryFont || design.fontFamily || "'Inter', sans-serif";
   const secondaryFont = design.secondaryFont || design.fontFamily || "'Inter', sans-serif";
   const baseFontSize = design.baseFontSize || 11;
   const fontScale = baseFontSize / 11;
 
-  // Apply Selected Page Format or default back to template's baseline
   const pageWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : tpl.page.width;
   const pageHeight = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].minHeight : tpl.page.minHeight;
 
@@ -937,14 +935,15 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
       finalBorder = el.borderBottom.replace(/#[0-9a-fA-F]+/, accent); 
     }
 
-    const dragStyle = {
+const dragStyle = {
       transform: `translate(${el.offsetX || 0}px, ${el.offsetY || 0}px)`,
       zIndex: draggingElementId === el.id ? 50 : 1,
       cursor: draggingElementId ? 'move' : 'default',
       position: 'relative', 
       
       display: el.inline ? 'inline-flex' : 'flex',
-      alignItems: el.alignItems || ((el.iconType || el.headerIcon) ? 'center' : 'flex-start'),
+      alignItems: el.textAlign === 'center' ? 'center' : (el.textAlign === 'right' ? 'flex-end' : (el.alignItems || 'flex-start')),
+      justifyContent: el.textAlign === 'center' ? 'center' : (el.textAlign === 'right' ? 'flex-end' : 'flex-start'),
       gap: (el.iconType || el.headerIcon) ? '8px' : '0',
       
       marginRight: el.marginRight ? `${el.marginRight}px` : '0',
@@ -952,92 +951,78 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
       marginTop: el.marginTop ? `${el.marginTop}px` : '0',
       marginLeft: el.marginLeft ? `${el.marginLeft}px` : '0',
       alignSelf: el.alignSelf || 'auto',
-      width: el.type === 'image' ? `${el.width}px` : (el.width || 'auto'),
+      width: el.type === 'image' ? `${el.width}px` : (el.width || '100%'), // CRITICAL FOR CENTERING
       
       fontFamily: (el.id.includes('Title') || el.id === 'fullName' || el.id === 'brandLogo') ? primaryFont : secondaryFont,
       fontSize: `${Math.round(el.fontSize * fontScale)}px`,
       fontWeight: el.fontWeight,
+      fontStyle: el.fontStyle || 'normal',
       color: finalColor,
-      textAlign: el.textAlign,
+      textAlign: el.textAlign || 'left',
       borderTop: el.border || 'none',
       borderRight: el.border || 'none',
       borderBottom: finalBorder || el.border || 'none',
       borderLeft: el.borderLeft || el.border || 'none',
       paddingTop: el.padding ? `${el.padding}px` : '0',
-      paddingRight: el.padding ? `${el.padding}px` : '0',
       paddingBottom: el.paddingBottom ? `${el.paddingBottom}px` : (el.padding ? `${el.padding}px` : '0'),
-      paddingLeft: el.paddingLeft ? `${el.paddingLeft}px` : (el.padding ? `${el.padding}px` : '0'),
       backgroundColor: el.backgroundColor || 'transparent',
       borderRadius: el.borderRadius ? `${el.borderRadius}px` : '0',
-      boxShadow: el.boxShadow || 'none',
-      textTransform: el.textTransform || 'none',
-      letterSpacing: el.letterSpacing || 'normal',
       lineHeight: el.lineHeight || '1.5',
-      justifyContent: el.justifyContent || 'flex-start'
     };
-
+    
     const blockClass = isTopLevel ? "resume-block" : "";
     const hoverClass = onElementMouseDown ? "hover:outline hover:outline-1 hover:outline-violet-400 hover:outline-offset-2 rounded-sm" : "";
     const combinedClass = `${blockClass} ${hoverClass}`.trim();
 
     if (el.type === 'image') {
       return (
-        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', width: `${el.width}px`, height: `${el.height}px`, borderRadius: '50%', backgroundColor: '#334155', border: '3px solid #64748b', overflow: 'hidden', justifyContent: 'center' }}>
-          {value ? <img src={value} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable="false" /> : <span style={{ color: '#94a3b8', fontSize: '10px' }}>No Photo</span>}
-        </div>
-      )
-    }
-
-    const textLines = (String(value) || '').split('\n');
-    
-    // Render Visual Progress Bars
-    if (el.isProgress) {
-      const progressArr = formData[`${el.id}_progress`] || el.progressValues || [];
-      return (
-        <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'block' }}>
-          {el.headerIcon && <IconRenderer type={el.headerIcon} size={el.fontSize * 1.2} color={finalColor} />}
-          {el.iconType && <IconRenderer type={el.iconType} size={el.fontSize * 1.2} color={finalColor} />}
-          <div style={{ flex: 1, width: '100%', marginTop: (el.headerIcon || el.iconType) ? '8px' : '0' }}>
-            {textLines.map((line, i) => {
-              if(!line.trim()) return null;
-              const cleanLine = line.replace(/^[•\-\*]\s*/, '');
-              const defaultProg = 65 + ((i * 13) % 30); 
-              const progress = progressArr[i] !== undefined ? progressArr[i] : defaultProg;
-              
-              return (
-                <div key={i} style={{ marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: `${el.fontSize}px` }}>
-                    <span>{cleanLine}</span>
-                  </div>
-                  <div style={{ width: '100%', height: '4px', backgroundColor: finalColor + '40', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ width: `${progress}%`, height: '100%', backgroundColor: finalColor, borderRadius: '2px', transition: 'width 0.2s ease' }}></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div key={`${resumeData.id}-${el.id}`} className={combinedClass} style={dragStyle} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)}>
+          <img src={value || el.defaultVal} alt={el.label} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: el.borderRadius ? `${el.borderRadius}px` : '0' }} />
         </div>
       );
     }
 
     return (
-      <div key={el.id} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)} className={combinedClass} style={{ ...dragStyle, '--orig-mt': dragStyle.marginTop || '0px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {el.headerIcon && <IconRenderer type={el.headerIcon} size={el.fontSize * 1.2} color={finalColor} />}
-        {el.iconType && <IconRenderer type={el.iconType} size={el.fontSize * 1.2} color={finalColor} />}
+      <div key={`${resumeData.id}-${el.id}`} className={combinedClass} style={dragStyle} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)}>
+        {el.iconType && <IconRenderer type={el.iconType} color={finalColor} size={el.fontSize * fontScale * 1.2} />}
+        {el.headerIcon && <IconRenderer type={el.headerIcon} color={finalColor} size={el.fontSize * fontScale * 1.5} />}
         <div style={{ flex: 1, width: '100%' }}>
-          {textLines.map((line, i) => (
-            <React.Fragment key={i}>
-              {line}
-              {i < textLines.length - 1 && <br />}
-            </React.Fragment>
-          ))}
+          {el.isProgress && el.progressValues ? (
+            <div className="flex flex-col gap-2 w-full mt-1">
+              {(value || el.defaultVal).split('\n').map((line, i) => {
+                if (!line.trim()) return null;
+                const progress = el.progressValues[i] !== undefined ? el.progressValues[i] : (65 + ((i * 13) % 30));
+                return (
+                  <div key={i} className="flex flex-col w-full gap-1 mb-1">
+                    <div className="flex justify-between items-center w-full">
+                      <span style={{ fontSize: `${el.fontSize * fontScale}px`, fontWeight: el.fontWeight, color: finalColor }}>{line.replace(/^[•\-\*]\s*/, '')}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full opacity-80" style={{ width: `${progress}%`, backgroundColor: finalColor }}></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div dangerouslySetInnerHTML={{ __html: (value || el.defaultVal).replace(/\n/g, '<br/>') }} />
+          )}
         </div>
       </div>
     );
   };
 
   return (
-    <div style={{ width: `${pageWidth}px`, minHeight: `${pageHeight}px`, backgroundColor: '#fff', display: 'flex', flexDirection: tpl.columns === 1 ? 'column' : 'row', fontFamily: secondaryFont, position: 'relative' }}>
+    <div className="resume-canvas-root" style={{ 
+      width: `${pageWidth}px`, 
+      minHeight: `${pageHeight}px`, 
+      backgroundColor: tpl.columns === 1 ? '#fff' : (tpl.rightBg || '#fff'), 
+      display: tpl.columns === 1 ? 'flex' : 'grid', 
+      gridTemplateColumns: tpl.columns === 1 ? 'none' : `${tpl.sidebarWidth || '35%'} 1fr`,
+      flexDirection: tpl.columns === 1 ? 'column' : undefined,
+      fontFamily: secondaryFont, 
+      position: 'relative' 
+    }}>
       
       {/* Container for Javascript-injected Desk Gaps to simulate physical pages */}
       <div id="desk-gaps-container" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40 }} />
@@ -1068,10 +1053,10 @@ const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElem
         </div>
       ) : (
         <React.Fragment>
-          <div className="flex flex-col flex-shrink-0 p-10 resume-column relative z-10" style={{ width: tpl.sidebarWidth || '35%', background: sidebarBg }}>
+          <div className="flex flex-col p-10 resume-column relative z-10" style={{ background: sidebarBg }}>
             {tpl.elements.filter(e => e.col === 'left').map(el => renderElement(el, true))}
           </div>
-          <div className="flex flex-col flex-1 p-12 resume-column relative z-10" style={{ backgroundColor: tpl.rightBg }}>
+          <div className="flex flex-col p-12 resume-column relative z-10" style={{ backgroundColor: tpl.rightBg || 'transparent' }}>
             {tpl.elements.filter(e => e.col === 'right').map(el => renderElement(el, true))}
           </div>
         </React.Fragment>
@@ -1171,6 +1156,22 @@ export default function App() {
   // Intelligent preview scaling
   const rightPaneRef = useRef(null);
   const [previewScale, setPreviewScale] = useState(1);
+
+  // --- NEW: Load Client-Side Parsers (PDF.js, JSZip) ---
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (!window.pdfjsLib) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        document.head.appendChild(script);
+      }
+      if (!window.JSZip) {
+        const scriptZip = document.createElement('script');
+        scriptZip.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        document.head.appendChild(scriptZip);
+      }
+    }
+  }, []);
 
   // --- AUTO-PAGINATION ENGINE ---
   useEffect(() => {
@@ -1348,6 +1349,23 @@ export default function App() {
     };
   }, [draggingElementId, elementDragOffset, activeResumeId, isDragging, previewScale, triggerSaveIndicator]);
 
+  const handleResetOffsets = useCallback(() => {
+    setResumes(prev => prev.map(res => {
+      if (res.id !== activeResumeId) return res;
+      return {
+        ...res,
+        data: {
+          ...res.data,
+          elements: res.data.elements.map(el => ({ ...el, offsetX: 0, offsetY: 0 }))
+        }
+      };
+    }));
+    triggerSaveIndicator();
+    showToast('Layout reset.', 'success', 2000);
+  }, [activeResumeId, triggerSaveIndicator, showToast]);
+
+  const hasModifiedOffsets = activeResume?.data?.elements?.some(el => el.offsetX !== 0 || el.offsetY !== 0);
+
   const handleMouseDown = useCallback((e) => { e.preventDefault(); setIsDragging(true); }, []);
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -1400,7 +1418,23 @@ export default function App() {
             el.id === id ? { ...el, defaultVal: value } : el
           )
         }
-      };
+      }
+    }));
+    triggerSaveIndicator();
+  }, [activeResumeId, triggerSaveIndicator]);
+
+const updateElementAlign = useCallback((id, alignment) => {
+    setResumes(prevResumes => prevResumes.map(res => {
+      if (res.id !== activeResumeId) return res;
+      return {
+        ...res,
+        data: {
+          ...res.data,
+          elements: res.data.elements.map(el =>
+            el.id === id ? { ...el, textAlign: alignment } : el
+          )
+        }
+      }
     }));
     triggerSaveIndicator();
   }, [activeResumeId, triggerSaveIndicator]);
@@ -1541,66 +1575,247 @@ export default function App() {
     }, 1200);
   };
 
+  // --- NEW: Client-Side Parsers ---
+  const processClientPDF = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const textContent = await page.getTextContent();
+    const viewport = page.getViewport({ scale: 1.0 });
+
+    const elements = [];
+    textContent.items.forEach((item, index) => {
+      const text = item.str.trim();
+      if (!text) return;
+      
+      const x = item.transform[4];
+      const y = viewport.height - item.transform[5] - item.height;
+      
+      elements.push({
+         id: `importedText_${index}`,
+         col: 'main',
+         label: 'Imported Text',
+         fontSize: item.height || 12,
+         fontWeight: item.fontName.toLowerCase().includes('bold') ? 'bold' : 'normal',
+         color: '#334155',
+         defaultVal: text,
+         offsetX: 0, offsetY: 0,
+         marginLeft: Math.max(0, x),
+         marginTop: index === 0 ? Math.max(0, y) : 10
+      });
+    });
+
+    return {
+      id: `client_pdf_${Date.now()}`,
+      name: `Imported Template`,
+      columns: 1,
+      headshot: false,
+      page: { width: viewport.width, minHeight: viewport.height },
+      designConfig: { fontFamily: "'Inter', sans-serif", accentColor: "#1e293b" },
+      elements
+    };
+  };
+
+// ADVANCED DOCX PARSER USING JSZIP
+  const processClientDOCX = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    if (!window.JSZip) throw new Error("JSZip not loaded. Please try again.");
+
+    const zip = await window.JSZip.loadAsync(arrayBuffer.slice(0));
+    const docXml = await zip.file("word/document.xml").async("text");
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(docXml, "text/xml");
+
+    const body = doc.getElementsByTagName("w:body")[0];
+    const elements = [];
+
+    let isTwoColumn = false;
+    let leftBg = '#f1f5f9'; 
+    let rightBg = '#ffffff';
+
+    const topLevelTables = [];
+    for (let i = 0; i < body.childNodes.length; i++) {
+        if (body.childNodes[i].nodeName === "w:tbl") topLevelTables.push(body.childNodes[i]);
+    }
+
+    if (topLevelTables.length > 0) {
+        const firstTable = topLevelTables[0];
+        const rows = firstTable.getElementsByTagName("w:tr");
+        if (rows.length > 0) {
+            const cells = rows[0].getElementsByTagName("w:tc");
+            if (cells.length >= 2) {
+                isTwoColumn = true;
+            }
+        }
+    }
+
+    // 2. Parse Text Properties & SPLIT Soft Breaks
+    const parseParagraph = (pNode, col) => {
+        let baseFontSize = 11;
+        let baseBold = false;
+        let baseItalic = false;
+        let baseColor = "#334155";
+        let textAlign = "left";
+        let isBullet = false;
+
+        const pPr = pNode.getElementsByTagName("w:pPr")[0];
+        if (pPr) {
+            if (pPr.getElementsByTagName("w:numPr").length > 0) isBullet = true;
+            
+            const jcNode = pPr.getElementsByTagName("w:jc")[0];
+            if (jcNode) {
+                const alignVal = jcNode.getAttribute("w:val");
+                if (alignVal === "center") textAlign = "center";
+                else if (alignVal === "right") textAlign = "right";
+                else if (alignVal === "both") textAlign = "justify";
+            }
+
+            const pStyle = pPr.getElementsByTagName("w:pStyle")[0];
+            if (pStyle) {
+                const styleVal = pStyle.getAttribute("w:val") || "";
+                // Catch Word's Default Heading Styles for Blue colors
+                if (styleVal.toLowerCase().includes("heading")) {
+                    baseBold = true;
+                    if (baseColor === "#334155") baseColor = "#0284c7"; // Professional Blue
+                    baseFontSize = Math.max(baseFontSize, 14);
+                }
+            }
+        }
+
+        let currentText = "";
+        let currentFontSize = baseFontSize;
+        let currentIsBold = baseBold;
+        let currentIsItalic = baseItalic;
+        let currentColor = baseColor;
+
+        const flushElement = () => {
+            let textToFlush = currentText.trim();
+            if (isBullet && textToFlush && !textToFlush.startsWith("•")) {
+               textToFlush = "• " + textToFlush;
+            }
+            
+            if (textToFlush) {
+                elements.push({
+                    id: `importedText_${elements.length}_${Math.random().toString(36).substr(2, 5)}`,
+                    col: col,
+                    label: 'Imported Text',
+                    fontSize: currentFontSize,
+                    fontWeight: currentIsBold ? 'bold' : 'normal',
+                    fontStyle: currentIsItalic ? 'italic' : 'normal',
+                    textAlign: textAlign,
+                    color: currentColor,
+                    defaultVal: textToFlush,
+                    offsetX: 0, offsetY: 0,
+                    width: '100%', // FORCES FLEXBOX TO ALLOW CENTERING
+                    isMultiline: true, // FORCES THE TEXTAREA SO YOU CAN PRESS ENTER
+                    marginTop: currentIsBold && currentFontSize >= 13 ? 16 : 4,
+                    marginBottom: 4
+                });
+            }
+            currentText = ""; 
+        };
+
+        const runs = pNode.getElementsByTagName("w:r");
+        for (let i = 0; i < runs.length; i++) {
+            const rNode = runs[i];
+            
+            let runBold = baseBold;
+            let runItalic = baseItalic;
+            let runColor = baseColor;
+
+            const rPr = rNode.getElementsByTagName("w:rPr")[0];
+            if (rPr) {
+                const bNode = rPr.getElementsByTagName("w:b")[0];
+                if (bNode) runBold = true;
+
+                const iNode = rPr.getElementsByTagName("w:i")[0];
+                if (iNode) runItalic = true;
+                
+                const colorNode = rPr.getElementsByTagName("w:color")[0];
+                if (colorNode) {
+                    const val = colorNode.getAttribute("w:val");
+                    if (val && val !== "auto") runColor = "#" + val;
+                }
+            }
+
+            if (currentText === "") {
+                currentIsBold = runBold;
+                currentIsItalic = runItalic;
+                currentColor = runColor;
+            }
+
+            const childNodes = rNode.childNodes;
+            for(let c=0; c<childNodes.length; c++) {
+                const child = childNodes[c];
+                if (child.nodeName === "w:t") {
+                    currentText += child.textContent;
+                } else if (child.nodeName === "w:br") {
+                    flushElement(); // Split element on Shift+Enter
+                }
+            }
+        }
+        flushElement(); 
+    };
+
+    const traverseNode = (node, currentCol) => {
+        if (node.nodeName === "w:p") {
+            parseParagraph(node, currentCol);
+        } else {
+            const childNodes = node.childNodes;
+            for (let k = 0; k < childNodes.length; k++) {
+                traverseNode(childNodes[k], currentCol);
+            }
+        }
+    };
+
+    for (let i = 0; i < body.childNodes.length; i++) {
+        traverseNode(body.childNodes[i], isTwoColumn ? 'main' : 'main');
+    }
+
+    return {
+        id: `client_docx_${Date.now()}`,
+        name: `Imported Template`,
+        columns: isTwoColumn ? 2 : 1,
+        headshot: false,
+        page: { width: 900, minHeight: 1100 },
+        leftBg: leftBg,
+        rightBg: rightBg,
+        designConfig: { fontFamily: "'Inter', sans-serif", accentColor: "#1e293b" },
+        elements
+    };
+  };
+
   const handleTemplateFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
     setIsUploading(true);
-    showToast(`AI analyzing layout of ${file.name}...`, 'loading');
-    
+    showToast(`Processing ${file.name} locally in browser...`, 'loading');
+
     try {
-      const uploadData = new FormData();
-      uploadData.append('file', file);
-
-      // Changed from localhost to 127.0.0.1 to avoid IPv6 resolution bugs
-      const response = await fetch('http://127.0.0.1:8000/extract-layout', {
-        method: 'POST',
-        body: uploadData,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Server returned ${response.status}: ${errText}`);
-      }
-
-      let customClientTemplate = await response.json();
-      customClientTemplate.designLocked = true; // Lock Custom Client Templates automatically
-      customClientTemplate = enhanceImportedTemplate(customClientTemplate);
-
-      handleSelectTemplate(customClientTemplate);
-      showToast('Custom template reverse-engineered successfully!', 'success');
-    } catch (error) {
-      console.error("AI Engine Error Details:", error);
-      
-      // SHOW EXACT ERROR TO USER instead of generic "Backend offline"
-      showToast(`Upload Failed: ${error.message}. Check console.`, 'error', 6000);
-      
-      setTimeout(() => {
-        let fallbackTemplate = {
-          id: `custom_client_${Date.now()}`,
-          name: `Imported Layout: ${file.name.split('.')[0]}`,
-          columns: 1,
-          headshot: false,
-          designLocked: true, // Lock Fallback Layouts automatically
-          designConfig: { fontFamily: "'Inter', sans-serif", accentColor: '#1e293b' },
-          page: { width: 900, minHeight: 1100 },
-          elements: classicTemplate.elements.map(el => ({
-            ...el,
-            color: el.fontSize > 12 ? '#0f172a' : '#334155',
-            borderBottom: el.borderBottom ? '1px solid #cbd5e1' : 'none',
-            headerIcon: null,
-            iconType: null,
-            textTransform: el.id.includes('Title') ? 'uppercase' : 'none',
-            marginBottom: el.marginBottom ? el.marginBottom * 0.8 : 0
-          }))
-        };
+        let customClientTemplate = null;
         
-        fallbackTemplate = enhanceImportedTemplate(fallbackTemplate);
-        handleSelectTemplate(fallbackTemplate);
-      }, 1500);
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          if (!window.pdfjsLib) throw new Error("PDF parser is still loading, please try again.");
+          customClientTemplate = await processClientPDF(file);
+        } else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
+          if (!window.JSZip) throw new Error("DOCX parser is still loading, please try again.");
+          customClientTemplate = await processClientDOCX(file);
+        } else {
+           throw new Error("Unsupported file format. Please upload PDF or DOCX.");
+        }
+
+        const enhanced = enhanceImportedTemplate(customClientTemplate);
+        handleSelectTemplate(enhanced);
+        showToast('Layout captured successfully!', 'success');
+        
+    } catch (error) {
+        console.error("Client Engine Error Details:", error);
+        showToast(`Upload Failed: ${error.message}`, 'error', 6000);
     } finally {
-      setIsUploading(false);
-      e.target.value = '';
+        setIsUploading(false);
+        e.target.value = '';
     }
   };
 
@@ -2003,7 +2218,7 @@ export default function App() {
               {/* Footer Controls */}
               <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
                  {wizardStep > 1 ? (
-                   <button onClick={() => setWizardStep(wizardStep - 1)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors">Back</button>
+                   <button onClick={() => setWizardStep(wizardStep - 1)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors backward-btn">Back</button>
                  ) : <div></div>}
                  
                  {wizardStep === 1 && (
@@ -2564,19 +2779,29 @@ export default function App() {
                         }
 
                         return (
-                          <div key={`${activeResumeId}-${el.id}`} className="flex flex-col gap-1.5 group w-full">
-                            <label className="text-[11px] font-bold text-slate-400 group-focus-within:text-violet-600 uppercase tracking-wider flex justify-between items-center transition-colors">
-                              {el.label}
-                              {el.isMultiline && (
-                                <button
-                                  onClick={() => insertBullet(el.id)}
-                                  className="normal-case text-[10px] font-bold bg-slate-100 hover:bg-violet-100 text-slate-500 hover:text-violet-700 px-2 py-0.5 rounded transition-colors flex items-center gap-1 shadow-sm"
-                                  title="Add bullet point"
-                                >
-                                  <span className="text-sm leading-none">&bull;</span> Bullet
+<div key={`${activeResumeId}-${el.id}`} className="flex flex-col gap-1.5 group w-full">
+                            
+                            {/* MINI TOOLBAR & LABEL */}
+                            <div className="flex justify-between items-end mb-1">
+                              <label className="text-[11px] font-bold text-slate-400 group-focus-within:text-violet-600 uppercase tracking-wider transition-colors">
+                                {el.label}
+                              </label>
+                              
+                              <div className="flex items-center gap-1 bg-slate-200/50 p-0.5 rounded-md border border-slate-200">
+                                <button onClick={() => updateElementAlign(el.id, 'left')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(!el.textAlign || el.textAlign === 'left') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Left">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h10M4 18h16"></path></svg>
                                 </button>
-                              )}
-                            </label>
+                                <button onClick={() => updateElementAlign(el.id, 'center')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'center') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Center">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M7 12h10M4 18h16"></path></svg>
+                                </button>
+                                <button onClick={() => updateElementAlign(el.id, 'right')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'right') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Right">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M10 12h10M4 18h16"></path></svg>
+                                </button>
+                                <button onClick={() => updateElementAlign(el.id, 'justify')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'justify') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Justify">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                </button>
+                              </div>
+                            </div>
                             {el.isMultiline ? (
                               <div className="flex flex-col gap-2 w-full">
                                 <textarea
@@ -2675,6 +2900,25 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* Small Top-Right Reset Layout Button */}
+              {hasModifiedOffsets && (
+                <div className="absolute top-6 right-6 z-50 animate-in fade-in zoom-in duration-200">
+                  <button
+                     onClick={handleResetOffsets}
+                     className="bg-white border border-slate-200 text-slate-500 hover:text-violet-600 hover:bg-violet-50 hover:border-violet-300 shadow-sm rounded-lg p-2.5 transition-all flex items-center justify-center group relative focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                     title="Undo Dragged Elements"
+                  >
+                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                       <path d="M3 7v6h6"></path>
+                       <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path>
+                     </svg>
+                     <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-800 text-white text-[11px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
+                       Undo Moves
+                     </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
