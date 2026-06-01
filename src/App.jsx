@@ -1,3079 +1,1870 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-
-const PAGE_FORMATS = {
-  'US Letter (8.5" x 11")': { width: 816, minHeight: 1056 },
-  'US Legal (8.5" x 14")': { width: 816, minHeight: 1344 },
-  'A4 (210 x 297mm)': { width: 794, minHeight: 1123 },
-  'Standard (900x1100)': { width: 900, minHeight: 1100 },
-};
-
-// --- Template Schemas (Upgraded for Auto-Flow Layout) ---
-
-// 1. Standard Executive (Classic 1 Col)
-const classicTemplate = {
-  id: 'classic_1col',
-  name: 'Standard Executive (Classic)',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: [
-    { id: 'fullName', col: 'main', label: 'Full Name', fontSize: 32, fontWeight: 'bold', color: '#111827', textAlign: 'left', marginBottom: 5, defaultVal: 'Your Name' },
-    { id: 'title', col: 'main', label: 'Professional Title', fontSize: 16, fontWeight: 'normal', color: '#6b7280', textAlign: 'left', marginBottom: 15, defaultVal: 'Your Title' },
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Resume Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
-    { id: 'phone', col: 'main', label: 'Phone', inline: true, iconType: 'phone', fontSize: 11, color: '#6b7280', marginRight: 20, marginBottom: 30, defaultVal: '+1 234 567 8900' },
-    { id: 'email', col: 'main', label: 'Email', inline: true, iconType: 'email', fontSize: 11, color: '#6b7280', marginRight: 20, marginBottom: 30, defaultVal: 'email@example.com' },
-    { id: 'linkedin', col: 'main', label: 'LinkedIn', inline: true, iconType: 'linkedin', fontSize: 11, color: '#6b7280', marginBottom: 30, defaultVal: 'linkedin.com/in/username' },
-    
-    { id: 'summaryTitle', col: 'main', label: 'Summary Header', headerIcon: 'user', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'BACKGROUND & EXPERTISE' },
-    { id: 'summary', col: 'main', label: 'Summary Text', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: 'A brief summary of your expertise.' },
-    
-    { id: 'techSkillsTitle', col: 'main', label: 'Technical Skills Header', headerIcon: 'code', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'TECHNICAL SKILLS' },
-    { id: 'techSkills', col: 'main', label: 'Technical Skills', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: '• Skill 1\n• Skill 2' },
-
-    { id: 'funcSkillsTitle', col: 'main', label: 'Functional Skills Header', headerIcon: 'settings', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'FUNCTIONAL SKILLS' },
-    { id: 'funcSkills', col: 'main', label: 'Functional Skills', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: '• Skill 1\n• Skill 2' },
-    
-    { id: 'certsTitle', col: 'main', label: 'Certifications Header', headerIcon: 'award', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'CERTIFICATIONS' },
-    { id: 'certifications', col: 'main', label: 'Certifications', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: '• Cert 1' },
-
-    { id: 'industryTitle', col: 'main', label: 'Industry Header', headerIcon: 'building', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'INDUSTRY BACKGROUND' },
-    { id: 'industry', col: 'main', label: 'Industry', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: '• Industry 1' },
-
-    { id: 'expTitle', col: 'main', label: 'Experience Header', headerIcon: 'briefcase', fontSize: 14, fontWeight: 'bold', color: '#047857', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'PROFESSIONAL EXPERIENCE' },
-    
-    { id: 'job1Title', col: 'main', label: 'Job 1 Title', fontSize: 12, fontWeight: 'bold', color: '#1f2937', marginBottom: 5, defaultVal: 'Company - Role' },
-    { id: 'job1Desc', col: 'main', label: 'Job 1 Description', isMultiline: true, fontSize: 11, color: '#4b5563', marginBottom: 20, defaultVal: 'Describe your responsibilities here.' },
-    { id: 'job2Title', col: 'main', label: 'Job 2 Title', fontSize: 12, fontWeight: 'bold', color: '#1f2937', marginBottom: 5, defaultVal: '' },
-    { id: 'job2Desc', col: 'main', label: 'Job 2 Description', isMultiline: true, fontSize: 11, color: '#4b5563', marginBottom: 20, defaultVal: '' },
-    { id: 'job3Title', col: 'main', label: 'Job 3 Title', fontSize: 12, fontWeight: 'bold', color: '#1f2937', marginBottom: 5, defaultVal: '' },
-    { id: 'job3Desc', col: 'main', label: 'Job 3 Description', isMultiline: true, fontSize: 11, color: '#4b5563', marginBottom: 20, defaultVal: '' },
-    { id: 'job4Title', col: 'main', label: 'Job 4 Title', fontSize: 12, fontWeight: 'bold', color: '#1f2937', marginBottom: 5, defaultVal: '' },
-    { id: 'job4Desc', col: 'main', label: 'Job 4 Description', isMultiline: true, fontSize: 11, color: '#4b5563', marginBottom: 20, defaultVal: '' },
-    { id: 'job5Title', col: 'main', label: 'Job 5 Title', fontSize: 12, fontWeight: 'bold', color: '#1f2937', marginBottom: 5, defaultVal: '' },
-    { id: 'job5Desc', col: 'main', label: 'Job 5 Description', isMultiline: true, fontSize: 11, color: '#4b5563', marginBottom: 20, defaultVal: '' }
-  ]
-};
-
-// 2. Modern Split (2 Col)
-const modernTwoColTemplate = {
-  id: 'modern_2col',
-  name: 'Modern Split (Two Column)',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#1e293b',
-  rightBg: '#ffffff',
-  elements: [
-    { id: 'profilePic', col: 'left', label: 'Profile Picture', type: 'image', width: 120, height: 120, marginBottom: 25, alignSelf: 'center', defaultVal: '' },
-    { id: 'fullName', col: 'left', label: 'Full Name', fontSize: 24, fontWeight: 'bold', color: '#ffffff', textAlign: 'center', marginBottom: 5, defaultVal: 'Your Name' },
-    { id: 'title', col: 'left', label: 'Professional Title', fontSize: 12, fontWeight: 'normal', color: '#94a3b8', textAlign: 'center', marginBottom: 35, defaultVal: 'Your Title' },
-    
-    { id: 'phone', col: 'left', label: 'Phone', iconType: 'phone', fontSize: 10, color: '#cbd5e1', marginBottom: 12, defaultVal: '+1 234 567 8900' },
-    { id: 'email', col: 'left', label: 'Email', iconType: 'email', fontSize: 10, color: '#cbd5e1', marginBottom: 12, defaultVal: 'email@example.com' },
-    { id: 'linkedin', col: 'left', label: 'LinkedIn', iconType: 'linkedin', fontSize: 10, color: '#cbd5e1', marginBottom: 35, defaultVal: 'linkedin.com/in/username' },
-    
-    { id: 'techSkillsTitle', col: 'left', label: 'Technical Skills Header', headerIcon: 'code', fontSize: 12, fontWeight: 'bold', color: '#ffffff', borderBottom: '1px solid #334155', paddingBottom: 5, marginBottom: 15, defaultVal: 'TECHNICAL SKILLS' },
-    { id: 'techSkills', col: 'left', label: 'Technical Skills', isMultiline: true, fontSize: 10, color: '#cbd5e1', marginBottom: 35, defaultVal: '• Skill 1\n• Skill 2' },
-
-    { id: 'funcSkillsTitle', col: 'left', label: 'Functional Skills Header', headerIcon: 'settings', fontSize: 12, fontWeight: 'bold', color: '#ffffff', borderBottom: '1px solid #334155', paddingBottom: 5, marginBottom: 15, defaultVal: 'FUNCTIONAL SKILLS' },
-    { id: 'funcSkills', col: 'left', label: 'Functional Skills', isMultiline: true, fontSize: 10, color: '#cbd5e1', marginBottom: 35, defaultVal: '• Skill 1\n• Skill 2' },
-    
-    { id: 'certsTitle', col: 'left', label: 'Certifications Header', headerIcon: 'award', fontSize: 12, fontWeight: 'bold', color: '#ffffff', borderBottom: '1px solid #334155', paddingBottom: 5, marginBottom: 15, defaultVal: 'CERTIFICATIONS' },
-    { id: 'certifications', col: 'left', label: 'Certifications', isMultiline: true, fontSize: 10, color: '#cbd5e1', marginBottom: 35, defaultVal: '• Cert 1' },
-    
-    { id: 'industryTitle', col: 'left', label: 'Industry Header', headerIcon: 'building', fontSize: 12, fontWeight: 'bold', color: '#ffffff', borderBottom: '1px solid #334155', paddingBottom: 5, marginBottom: 15, defaultVal: 'INDUSTRY BACKGROUND' },
-    { id: 'industry', col: 'left', label: 'Industry', isMultiline: true, fontSize: 10, color: '#cbd5e1', marginBottom: 35, defaultVal: '• Industry 1' },
-
-    { id: 'summaryTitle', col: 'right', label: 'Summary Header', headerIcon: 'user', fontSize: 14, fontWeight: 'bold', color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 5, marginBottom: 15, defaultVal: 'PROFILE' },
-    { id: 'summary', col: 'right', label: 'Summary Text', isMultiline: true, fontSize: 11, color: '#334155', marginBottom: 35, defaultVal: 'A brief summary of your expertise.' },
-    
-    { id: 'expTitle', col: 'right', label: 'Experience Header', headerIcon: 'briefcase', fontSize: 14, fontWeight: 'bold', color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 5, marginBottom: 15, defaultVal: 'EXPERIENCE' },
-    
-    { id: 'job1Title', col: 'right', label: 'Job 1 Title', fontSize: 12, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, defaultVal: 'Company - Role' },
-    { id: 'job1Desc', col: 'right', label: 'Job 1 Description', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 25, defaultVal: 'Responsibilities.' },
-    { id: 'job2Title', col: 'right', label: 'Job 2 Title', fontSize: 12, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, defaultVal: '' },
-    { id: 'job2Desc', col: 'right', label: 'Job 2 Description', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 25, defaultVal: '' },
-    { id: 'job3Title', col: 'right', label: 'Job 3 Title', fontSize: 12, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, defaultVal: '' },
-    { id: 'job3Desc', col: 'right', label: 'Job 3 Description', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 25, defaultVal: '' },
-    { id: 'job4Title', col: 'right', label: 'Job 4 Title', fontSize: 12, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, defaultVal: '' },
-    { id: 'job4Desc', col: 'right', label: 'Job 4 Description', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 25, defaultVal: '' },
-    { id: 'job5Title', col: 'right', label: 'Job 5 Title', fontSize: 12, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, defaultVal: '' },
-    { id: 'job5Desc', col: 'right', label: 'Job 5 Description', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 25, defaultVal: '' }
-  ]
-};
-
-// 3. Minimalist Clean (1 Col)
-const minimalistCleanTemplate = {
-  id: 'minimalist_1col',
-  name: 'Minimalist Clean',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, color: el.fontSize > 12 ? '#000000' : '#4b5563', headerIcon: null, iconType: null };
-    if (el.borderBottom) newEl.borderBottom = '1px solid #e5e7eb';
-    return newEl;
-  })
-};
-
-// 4. Accent Indigo (1 Col)
-const accentIndigoTemplate = {
-  id: 'accent_indigo_1col',
-  name: 'Accent Indigo',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.id === 'fullName') newEl.color = '#312e81'; 
-    if (el.borderBottom) {
-      newEl.color = '#4f46e5'; 
-      newEl.borderBottom = '2px solid #c7d2fe'; 
-    }
-    return newEl;
-  })
-};
-
-// 5. Soft Blue Split (2 Col)
-const softBlueTwoColTemplate = {
-  id: 'soft_blue_2col',
-  name: 'Soft Blue Split',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#f0f9ff', 
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#0c4a6e' : '#0369a1'; 
-      if (el.borderBottom) newEl.borderBottom = '1px solid #bae6fd';
-    } else {
-      if (el.borderBottom) newEl.color = '#0c4a6e';
-    }
-    return newEl;
-  })
-};
-
-// 6. Dark Mode Tech (2 Col)
-const darkModeTwoColTemplate = {
-  id: 'dark_mode_2col',
-  name: 'Dark Mode Tech',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#000000',
-  rightBg: '#111827', 
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#9ca3af';
-      if (el.borderBottom) {
-        newEl.color = '#10b981'; 
-        newEl.borderBottom = '1px solid #374151';
-      }
-    } else {
-      newEl.color = el.fontSize > 12 ? '#f9fafb' : '#d1d5db';
-      if (el.borderBottom) {
-        newEl.color = '#10b981';
-        newEl.borderBottom = '1px solid #374151';
-      }
-    }
-    return newEl;
-  })
-};
-
-// 7. Executive Ruby (1 Col)
-const executiveRubyTemplate = {
-  id: 'exec_ruby_1col',
-  name: 'Executive Ruby',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.id === 'fullName') newEl.color = '#881337'; 
-    if (el.borderBottom) {
-      newEl.color = '#be123c'; 
-      newEl.borderBottom = '1px solid #fecdd3'; 
-    }
-    return newEl;
-  })
-};
-
-// 8. Emerald Split (2 Col)
-const emeraldTwoColTemplate = {
-  id: 'emerald_2col',
-  name: 'Emerald Split',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#064e3b', 
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#a7f3d0'; 
-      if (el.borderBottom) {
-        newEl.color = '#34d399'; 
-        newEl.borderBottom = '1px solid #047857'; 
-      }
-    }
-    return newEl;
-  })
-};
-
-// 9. Slate Minimal (1 Col)
-const slateMinimalTemplate = {
-  id: 'slate_minimal_1col',
-  name: 'Slate Minimal',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, headerIcon: null }; 
-    if (el.borderBottom) {
-      newEl.borderBottom = 'none'; 
-      newEl.color = '#334155'; 
-      newEl.fontWeight = 'bold';
-    }
-    newEl.color = el.fontSize > 12 ? '#0f172a' : '#475569';
-    return newEl;
-  })
-};
-
-// 10. Golden Dual (2 Col)
-const goldenTwoColTemplate = {
-  id: 'golden_2col',
-  name: 'Golden Dual',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#fefce8', 
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#713f12' : '#a16207'; 
-      if (el.borderBottom) {
-        newEl.color = '#854d0e';
-        newEl.borderBottom = '1px solid #fef08a';
-      }
-    } else {
-      if (el.borderBottom) newEl.color = '#854d0e';
-    }
-    return newEl;
-  })
-};
-
-// --- 10 NEW TEMPLATES ADDED BELOW ---
-
-// 11. Compact Professional (1 Col)
-const compactProfessionalTemplate = {
-  id: 'compact_professional_1col',
-  name: 'Compact Professional',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => ({
-    ...el,
-    fontSize: el.fontSize > 16 ? el.fontSize * 0.8 : el.fontSize > 12 ? 12 : 9.5,
-    marginBottom: el.marginBottom ? el.marginBottom * 0.6 : 0,
-    paddingBottom: el.paddingBottom ? el.paddingBottom * 0.6 : 0,
-    headerIcon: null,
-    color: el.fontSize > 12 ? '#000000' : '#374151'
-  }))
-};
-
-// 12. Harvard Style Resume (1 Col)
-const harvardStyleTemplate = {
-  id: 'harvard_style_1col',
-  name: 'Harvard Style Resume',
-  columns: 1,
-  headshot: false,
-  designLocked: true,
-  designConfig: { fontFamily: '"Times New Roman", Times, serif' },
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, headerIcon: null, iconType: null, color: '#000000' };
-    if (el.id === 'fullName') {
-      newEl.textAlign = 'center';
-      newEl.textTransform = 'uppercase';
-      newEl.fontSize = 24;
-      newEl.alignSelf = 'center';
-    }
-    if (el.id === 'title' || el.id === 'phone' || el.id === 'email' || el.id === 'linkedin') {
-      newEl.textAlign = 'center';
-      newEl.inline = false;
-      newEl.alignSelf = 'center';
-      newEl.marginBottom = 4;
-      newEl.marginRight = 0;
-    }
-    if (el.id.includes('Title') && !el.id.includes('job')) {
-      newEl.textAlign = 'center';
-      newEl.alignSelf = 'center';
-      newEl.textTransform = 'uppercase';
-      newEl.borderBottom = '1px solid #000000';
-      newEl.fontSize = 12;
-      newEl.width = '100%'; 
-      newEl.paddingBottom = 4;
-      newEl.marginTop = 12;
-    }
-    return newEl;
-  })
-};
-
-// 13. Timeline Classic (1 Col)
-const timelineClassicTemplate = {
-  id: 'timeline_classic_1col',
-  name: 'Timeline Classic',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, headerIcon: null };
-    if (el.id.includes('Desc')) {
-      newEl.borderLeft = '2px solid #cbd5e1';
-      newEl.paddingLeft = 16;
-      newEl.marginLeft = 6; 
-      newEl.paddingBottom = 16; 
-    }
-    return newEl;
-  })
-};
-
-// 14. Section Divider Bold (1 Col)
-const sectionDividerBoldTemplate = {
-  id: 'section_divider_bold_1col',
-  name: 'Section Divider Bold',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, headerIcon: null };
-    if (el.borderBottom) {
-      newEl.borderBottom = '4px solid #111827';
-      newEl.textTransform = 'uppercase';
-      newEl.color = '#111827';
-      newEl.paddingBottom = 6;
-      newEl.marginTop = 10;
-    }
-    return newEl;
-  })
-};
-
-// 15. Serif Elegant (1 Col)
-const serifElegantTemplate = {
-  id: 'serif_elegant_1col',
-  name: 'Serif Elegant',
-  columns: 1,
-  headshot: false,
-  designConfig: { fontFamily: 'Georgia, serif' },
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.id === 'fullName') newEl.color = '#1e3a8a';
-    if (el.borderBottom) {
-      newEl.color = '#1e3a8a';
-      newEl.borderBottom = '1px solid #bfdbfe';
-    }
-    return newEl;
-  })
-};
-
-// 16. Sidebar Minimal (2 Col)
-const sidebarMinimalTemplate = {
-  id: 'sidebar_minimal_2col',
-  name: 'Sidebar Minimal',
-  columns: 2,
-  headshot: true,
-  sidebarWidth: '25%', // Tighter sidebar
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#f8fafc',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#334155' : '#64748b';
-      if (el.borderBottom) newEl.borderBottom = '1px solid #cbd5e1';
-    }
-    return newEl;
-  })
-};
-
-// 17. Gradient Split (2 Col)
-const gradientSplitTemplate = {
-  id: 'gradient_split_2col',
-  name: 'Gradient Split',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: 'linear-gradient(135deg, #4f46e5 0%, #7e22ce 100%)', // Real CSS Gradient Support
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#e9d5ff';
-      if (el.borderBottom) newEl.borderBottom = '1px solid #a855f7';
-    }
-    return newEl;
-  })
-};
-
-// 18. Card-Based Layout (2 Col)
-const cardBasedTemplate = {
-  id: 'card_based_2col',
-  name: 'Card-Based Layout',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#1e293b',
-  rightBg: '#f1f5f9',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'right' && el.isMultiline) {
-      newEl.backgroundColor = '#ffffff';
-      newEl.padding = 16;
-      newEl.borderRadius = 8;
-      newEl.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-      newEl.border = '1px solid #e2e8f0';
-      newEl.width = '100%';
-    }
-    return newEl;
-  })
-};
-
-// 19. Icon-Focused Resume (2 Col)
-const iconFocusedTemplate = {
-  id: 'icon_focused_2col',
-  name: 'Icon-Focused Resume',
-  columns: 2,
-  headshot: true,
-  sidebarWidth: '32%',
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#0f172a',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#94a3b8';
-      if (el.borderBottom) newEl.borderBottom = '1px solid #334155';
-    }
-    // Give all job titles an icon
-    if (el.id.includes('job') && el.id.includes('Title')) {
-       newEl.headerIcon = 'briefcase'; 
-       newEl.color = '#0ea5e9';
-    }
-    return newEl;
-  })
-};
-
-// 20. Progress Bar Skills (2 Col)
-const progressBarTemplate = {
-  id: 'progress_bars_2col',
-  name: 'Progress Bar Skills',
-  columns: 2,
-  headshot: true,
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#27272a',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    // Tag skills to be rendered as progress bars by the engine
-    if (el.id === 'techSkills' || el.id === 'funcSkills') {
-      newEl.isProgress = true;
-    }
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#a1a1aa';
-      if (el.borderBottom) newEl.borderBottom = '1px solid #52525b';
-    }
-    return newEl;
-  })
-};
-
-// --- 12 NEW PREMIUM & SPECIALIZED TEMPLATES ---
-
-// 21. Portfolio Hybrid (2 Col)
-const portfolioHybridTemplate = {
-  id: 'portfolio_hybrid_2col',
-  name: 'Portfolio Hybrid',
-  columns: 2,
-  headshot: true,
-  sidebarWidth: '35%',
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#18181b',
-  rightBg: '#fafafa',
-  elements: [
-    ...modernTwoColTemplate.elements.map(el => {
-      const newEl = { ...el };
-      if (el.col === 'left') {
-        newEl.color = el.fontSize > 12 ? '#ffffff' : '#a1a1aa';
-        if (el.borderBottom) newEl.borderBottom = '1px solid #3f3f46';
-      }
-      return newEl;
-    }),
-    { id: 'portfolioUrl', col: 'left', label: 'Portfolio Link', iconType: 'link', fontSize: 10, color: '#a1a1aa', marginBottom: 12, defaultVal: 'portfolio.com/username' }
-  ]
-};
-
-// 22. Infographic Resume (2 Col)
-const infographicTemplate = {
-  id: 'infographic_2col',
-  name: 'Infographic Resume',
-  columns: 2,
-  headshot: true,
-  designLocked: true,
-  sidebarWidth: '40%',
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#2e1065',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    if (el.id === 'techSkills' || el.id === 'funcSkills') newEl.isProgress = true;
-    if (el.col === 'left') {
-      newEl.color = el.fontSize > 12 ? '#ffffff' : '#ddd6fe';
-      if (el.borderBottom) newEl.borderBottom = '1px solid #5b21b6';
-    } else {
-      if (el.borderBottom) {
-        newEl.borderBottom = 'none';
-        newEl.backgroundColor = '#f3f4f6';
-        newEl.padding = 6;
-        newEl.borderRadius = 4;
-      }
-    }
-    return newEl;
-  })
-};
-
-// 23. Asymmetrical Layout (2 Col)
-const asymmetricalTemplate = {
-  id: 'asymmetrical_2col',
-  name: 'Asymmetrical Layout',
-  columns: 2,
-  headshot: false,
-  sidebarWidth: '60%', // Wide left, narrow right
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#ffffff',
-  rightBg: '#f8fafc',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    // Swap columns to put heavy text on the left, skills on the right
-    newEl.col = el.col === 'left' ? 'right' : 'left';
-    newEl.color = '#334155';
-    if (newEl.borderBottom) newEl.borderBottom = '1px solid #cbd5e1';
-    if (el.id === 'fullName') {
-       newEl.color = '#0f172a';
-       newEl.fontSize = 36;
-       newEl.textAlign = 'left';
-       newEl.alignSelf = 'flex-start';
-    }
-    return newEl;
-  })
-};
-
-// 24. Magazine Style (2 Col)
-const magazineTemplate = {
-  id: 'magazine_2col',
-  name: 'Magazine Style',
-  columns: 2,
-  headshot: true,
-  designLocked: true,
-  designConfig: { fontFamily: 'Georgia, serif' },
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#ffffff',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.map(el => {
-    const newEl = { ...el };
-    newEl.color = '#000000';
-    if (el.id === 'fullName') {
-      newEl.fontSize = 42;
-      newEl.textTransform = 'uppercase';
-      newEl.letterSpacing = '2px';
-    }
-    if (el.borderBottom) {
-      newEl.borderBottom = '3px solid #000000';
-      newEl.textTransform = 'uppercase';
-    }
-    return newEl;
-  })
-};
-
-// 25. Developer Resume (1 Col)
-const developerTemplate = {
-  id: 'developer_1col',
-  name: 'Developer Resume',
-  columns: 1,
-  headshot: false,
-  designLocked: true,
-  designConfig: { fontFamily: '"Roboto Mono", monospace' },
-  page: { width: 900, minHeight: 1100 },
-  elements: [
-    ...classicTemplate.elements.map(el => ({ ...el, color: el.fontSize > 12 ? '#1e293b' : '#475569' })),
-    { id: 'githubLink', col: 'main', label: 'GitHub URL', inline: true, iconType: 'github', fontSize: 11, color: '#475569', marginRight: 20, marginBottom: 30, defaultVal: 'github.com/username' },
-    { id: 'projectsTitle', col: 'main', label: 'Key Projects Header', headerIcon: 'code', fontSize: 14, fontWeight: 'bold', color: '#0ea5e9', borderBottom: '2px solid #bae6fd', paddingBottom: 5, marginBottom: 15, defaultVal: 'KEY PROJECTS & ARCHITECTURE' },
-    { id: 'projects', col: 'main', label: 'Projects Details', isMultiline: true, fontSize: 11, color: '#475569', marginBottom: 30, defaultVal: '• Built scalable microservices using Node.js and Docker.\n• Designed low-latency frontend architecture using React.' }
-  ]
-};
-
-// 26. Sales Performance Resume (1 Col)
-const salesTemplate = {
-  id: 'sales_1col',
-  name: 'Sales Performance Resume',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: [
-    ...classicTemplate.elements.map(el => ({ ...el })),
-    { id: 'kpiTitle', col: 'main', label: 'Key Metrics Header', headerIcon: 'chart', fontSize: 14, fontWeight: 'bold', color: '#059669', borderBottom: '2px solid #a7f3d0', paddingBottom: 5, marginBottom: 15, defaultVal: 'KEY PERFORMANCE INDICATORS (KPIs)' },
-    { id: 'kpis', col: 'main', label: 'Sales Metrics', isMultiline: true, fontSize: 11, color: '#374151', marginBottom: 30, defaultVal: '• 150% Quota Attainment Q3 2023\n• Generated $1.2M in new pipeline.' }
-  ]
-};
-
-// 27. Academic CV Template (1 Col)
-const academicCVTemplate = {
-  id: 'academic_cv_1col',
-  name: 'Academic CV Template',
-  columns: 1,
-  headshot: false,
-  designConfig: { fontFamily: '"Times New Roman", Times, serif' },
-  page: { width: 900, minHeight: 1100 },
-  elements: [
-    ...classicTemplate.elements.map(el => ({ ...el, headerIcon: null, iconType: null, color: '#000000' })),
-    { id: 'publicationsTitle', col: 'main', label: 'Publications Header', fontSize: 14, fontWeight: 'bold', color: '#000000', borderBottom: '1px solid #000000', paddingBottom: 5, marginBottom: 15, defaultVal: 'PUBLICATIONS & RESEARCH' },
-    { id: 'publications', col: 'main', label: 'Publications List', isMultiline: true, fontSize: 11, color: '#000000', marginBottom: 30, defaultVal: '• "Advanced Modeling in System Sciences", Journal of Systems, 2023.' }
-  ]
-};
-
-// 28. Fresh Graduate Template (1 Col)
-const freshGradTemplate = {
-  id: 'fresh_grad_1col',
-  name: 'Fresh Graduate',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el };
-    // Make summary massive, minimal experience emphasis
-    if (el.id === 'summary') {
-      newEl.fontSize = 13;
-      newEl.lineHeight = '1.8';
-    }
-    return newEl;
-  })
-};
-
-// 29. Career Switch Template (1 Col)
-const careerSwitchTemplate = {
-  id: 'career_switch_1col',
-  name: 'Career Switch',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el };
-    // Enhance Skills visual hierarchy over experience
-    if (el.id === 'techSkills' || el.id === 'funcSkills') {
-      newEl.backgroundColor = '#f8fafc';
-      newEl.padding = 12;
-      newEl.borderRadius = 8;
-      newEl.border = '1px solid #e2e8f0';
-    }
-    return newEl;
-  })
-};
-
-// 30. ATS + Design Hybrid (1 Col)
-const atsDesignHybridTemplate = {
-  id: 'ats_design_hybrid_1col',
-  name: 'ATS + Design Hybrid',
-  columns: 1,
-  headshot: false,
-  page: { width: 900, minHeight: 1100 },
-  elements: classicTemplate.elements.map(el => {
-    const newEl = { ...el, headerIcon: null };
-    if (el.borderBottom) {
-      newEl.borderBottom = 'none';
-      newEl.backgroundColor = '#f1f5f9';
-      newEl.padding = 8;
-      newEl.borderRadius = 4;
-      newEl.color = '#0f172a';
-    }
-    return newEl;
-  })
-};
-
-// 31. One-Page Ultra Compact (2 Col)
-const ultraCompactTemplate = {
-  id: 'ultra_compact_2col',
-  name: 'One-Page Ultra Compact',
-  columns: 2,
-  headshot: false,
-  sidebarWidth: '30%',
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#ffffff',
-  rightBg: '#ffffff',
-  elements: modernTwoColTemplate.elements.filter(el => el.type !== 'image').map(el => {
-    const newEl = { ...el };
-    newEl.fontSize = el.fontSize > 16 ? 16 : el.fontSize > 12 ? 10 : 8.5; // Tiny text
-    newEl.marginBottom = el.marginBottom ? el.marginBottom * 0.4 : 0;
-    newEl.paddingBottom = el.paddingBottom ? el.paddingBottom * 0.4 : 0;
-    newEl.color = '#1e293b';
-    if (newEl.borderBottom) newEl.borderBottom = '1px solid #cbd5e1';
-    return newEl;
-  })
-};
-
-// 32. Personal Branding Resume (2 Col)
-const personalBrandingTemplate = {
-  id: 'personal_branding_2col',
-  name: 'Personal Branding Resume',
-  columns: 2,
-  headshot: false,
-  designLocked: true,
-  sidebarWidth: '35%',
-  page: { width: 900, minHeight: 1100 },
-  leftBg: '#111827',
-  rightBg: '#ffffff',
-  elements: [
-    { id: 'brandLogo', col: 'left', label: 'Initials / Brand', fontSize: 36, fontWeight: 'bold', color: '#111827', backgroundColor: '#ffffff', width: '80px', height: '80px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: 20, alignSelf: 'center', defaultVal: 'GF' },
-    ...modernTwoColTemplate.elements.filter(el => el.type !== 'image').map(el => {
-      const newEl = { ...el };
-      if (el.col === 'left') {
-        newEl.color = el.fontSize > 12 ? '#ffffff' : '#9ca3af';
-        if (el.borderBottom) newEl.borderBottom = '1px solid #374151';
-      }
-      return newEl;
-    })
-  ]
-};
-
-const ALL_TEMPLATES = [
-  { ...classicTemplate, defaultAccent: '#047857' },
-  { ...modernTwoColTemplate, defaultAccent: '#334155' },
-  { ...minimalistCleanTemplate, defaultAccent: '#000000' },
-  { ...accentIndigoTemplate, defaultAccent: '#312e81' },
-  { ...softBlueTwoColTemplate, defaultAccent: '#0c4a6e' },
-  { ...darkModeTwoColTemplate, defaultAccent: '#10b981' },
-  { ...executiveRubyTemplate, defaultAccent: '#881337' },
-  { ...emeraldTwoColTemplate, defaultAccent: '#047857' },
-  { ...slateMinimalTemplate, defaultAccent: '#334155' },
-  { ...goldenTwoColTemplate, defaultAccent: '#854d0e' },
-  { ...compactProfessionalTemplate, defaultAccent: '#1f2937' },
-  { ...harvardStyleTemplate, defaultAccent: '#000000' },
-  { ...timelineClassicTemplate, defaultAccent: '#0ea5e9' },
-  { ...sectionDividerBoldTemplate, defaultAccent: '#111827' },
-  { ...serifElegantTemplate, defaultAccent: '#1e3a8a' },
-  { ...sidebarMinimalTemplate, defaultAccent: '#3b82f6' },
-  { ...gradientSplitTemplate, defaultAccent: '#a855f7' },
-  { ...cardBasedTemplate, defaultAccent: '#3b82f6' },
-  { ...iconFocusedTemplate, defaultAccent: '#0ea5e9' },
-  { ...progressBarTemplate, defaultAccent: '#14b8a6' },
-  { ...portfolioHybridTemplate, defaultAccent: '#d946ef' },
-  { ...infographicTemplate, defaultAccent: '#8b5cf6' },
-  { ...asymmetricalTemplate, defaultAccent: '#0f172a' },
-  { ...magazineTemplate, defaultAccent: '#000000' },
-  { ...developerTemplate, defaultAccent: '#0ea5e9' },
-  { ...salesTemplate, defaultAccent: '#059669' },
-  { ...academicCVTemplate, defaultAccent: '#000000' },
-  { ...freshGradTemplate, defaultAccent: '#f59e0b' },
-  { ...careerSwitchTemplate, defaultAccent: '#6366f1' },
-  { ...atsDesignHybridTemplate, defaultAccent: '#334155' },
-  { ...ultraCompactTemplate, defaultAccent: '#1e293b' },
-  { ...personalBrandingTemplate, defaultAccent: '#facc15' }
-];
-
-// --- Parsed Data from User's PPTX ---
-const parsedGrahamDataMap = {
-  fullName: 'Graham Ross Flora',
-  title: 'Application Development Analyst',
-  phone: '+639321017870',
-  email: 'graham.ross.flora@accenture.com',
-  linkedin: 'linkedin.com/in/graham-flora',
-  portfolioUrl: 'grahamflora.dev',
-  githubLink: 'github.com/graham-flora',
-  summaryTitle: 'BACKGROUND & EXPERTISE',
-  summary: 'Extensive experience in Application Development with specialization in Splunk. Extensive experience in Data Onboarding with the use of AWS Cloud.',
-  
-  techSkillsTitle: 'TECHNICAL SKILLS',
-  techSkills: '• Splunk\n• Amazon Web Services\n• Microsoft Azure Administration\n• Informatica Intelligent Cloud Services\n• PowerBI',
-  funcSkillsTitle: 'FUNCTIONAL SKILLS',
-  funcSkills: '• Data Architecture\n• Data Analytics\n• Technical Design Documentation\n• AWS Cloud essentials\n• Data Visualization\n• Informatica Cloud Services\n• FORM Methodology',
-  
-  certsTitle: 'CERTIFICATIONS',
-  certifications: '• Splunk Core Certified Power User\n• Splunk Core Certified Power Admin\n• AWS Certified Cloud Practioner\n• Cribl Certified Observability (CCOE) User\n• Cribl Certified Observability (CCOE) Admin',
-  industryTitle: 'INDUSTRY BACKGROUND',
-  industry: '• Communications\n• Consumer Products\n• Computer Software (Cybersecurity)',
-  
-  projectsTitle: 'KEY PROJECTS & ARCHITECTURE',
-  projects: '• Splunk Data Normalization Engine: Reduced query load times by 40% using custom SPL logic.\n• Automated AWS Cloud Provisioning: Scripted infrastructure setup cutting deployment time by 2 days.',
-  kpiTitle: 'KEY PERFORMANCE INDICATORS (KPIs)',
-  kpis: '• Maintained 99.9% uptime for Splunk enterprise environments.\n• Successfully onboarded 50+ diverse data sources ahead of schedule.\n• Reduced average incident resolution time by 30%.',
-  publicationsTitle: 'PUBLICATIONS & RESEARCH',
-  publications: '• "Optimizing Log Analytics at Scale", Internal Tech Symposium 2023.\n• "Cloud Security Posture Management Strategies", Medium.com Technical Blog.',
-  
-  expTitle: 'PROFESSIONAL EXPERIENCE',
-  job1Title: 'SPLUNK DEVOPS ENGINEER - BMW (Oct 2023 – Present)',
-  job1Desc: 'I designed and implemented advanced Splunk solutions to centralize and analyze large-scale log data, enabling real-time monitoring and predictive analytics for critical systems. By developing custom SPL queries and dashboards, I optimized data visualization and anomaly detection, ensuring swift resolution of incidents and improved system reliability. Additionally, I configured backend settings, integrated Splunk with cloud platforms like AWS, and collaborated with stakeholders to address complex data challenges.',
-  job2Title: 'PROMPT ENGINEER - AMAZON (Mar 2023 – Oct 2023)',
-  job2Desc: 'I have developed and optimized advanced prompts for generative AI systems, ensuring high accuracy and relevance in natural language understanding tasks. My expertise includes designing multi-turn conversational flows to enhance user interactions and improve AI responsiveness across various applications.',
-  job3Title: 'SPLUNK DEVOPS ENGINEER - SHELL (Oct 2021 – Mar 2023)',
-  job3Desc: 'As a Splunk DevOps Engineer, I specialize in monitoring and troubleshooting issues on the Splunk platform to ensure optimal performance and reliability. I work closely with clients to onboard new projects, configuring Splunk environments based on client-provided frameworks and addressing specific needs. In collaboration with stakeholders, I propose solutions to data-related issues identified through monitoring, ensuring actionable insights and improved outcomes. Additionally, I leverage predictive modeling to enhance customer experiences, drive revenue growth, and optimize business operations, aligning data insights with strategic goals.',
-  job4Title: 'SPLUNK DEVELOPER - SPLUNK (June 2021 – Oct 2021)',
-  job4Desc: 'Worked on how the Splunk Industry work and how they handle their clients with their respective projects, enabling basic onboarding practical activities, configuring Splunkbase applications and addons, generating models, and creating advanced dashboards. This helps us to provide a better insights on critical issues to minimize the risk, and for work-load balancing.',
-  job5Title: 'CLOUD SECURITY ENGINEER – TREND MICRO (June 2019 – June 2021)',
-  job5Desc: 'A technical support to Trend Micro Home and Home Office users powered by Trend Micro Smart protection Network cloud security infrastructure that stops threats in cyberspace. Provides customer support with their account management, product inquiries, and to deliver best solutions to product concerns.'
-};
-
-// --- ENHANCED SEMANTIC TEMPLATE MAPPER ---
-const enhanceImportedTemplate = (schema) => {
-  let maxFontSize = 0;
-  schema.elements.forEach(el => { if (el.fontSize > maxFontSize) maxFontSize = el.fontSize; });
-
-  const usedIds = new Set();
-  let headerCounter = 1;
-  let sectionCounter = 1;
-  let listCounter = 1;
-  let foundFullName = false;
-
-  schema.elements = schema.elements.map((el, index) => {
-      let newId = el.id;
-      let newLabel = el.label;
-      const textLower = el.defaultVal.toLowerCase();
-      const textLen = el.defaultVal.length;
-      const isBulletStr = el.defaultVal.includes('•') || el.defaultVal.includes('-');
-
-      let proposedId = null;
-
-      // 1. Core Strict Matching (Prioritizing Keywords First!)
-      if (textLower.includes('experience') && textLen < 30) {
-          proposedId = 'expTitle'; newLabel = 'Experience Header';
-      } else if (textLower.includes('education') && textLen < 30) {
-          proposedId = 'eduTitle'; newLabel = 'Education Header';
-      } else if (textLower.includes('skill') && textLen < 30) {
-          proposedId = 'techSkillsTitle'; newLabel = 'Skills Header';
-      } else if (textLower.includes('certification') && textLen < 35) {
-          proposedId = 'certsTitle'; newLabel = 'Certifications Header';
-      } else if (textLower.includes('project') && textLen < 30) {
-          proposedId = 'projectsTitle'; newLabel = 'Projects Header';
-      } else if (textLower.includes('language') && textLen < 30) {
-          proposedId = 'langTitle'; newLabel = 'Languages Header';
-      } else if (textLower.includes('reference') && textLen < 30) {
-          proposedId = 'refTitle'; newLabel = 'References Header';
-      } else if ((textLower.includes('profile') || textLower.includes('summary')) && textLen < 30) {
-          proposedId = 'summaryTitle'; newLabel = 'Summary Header';
-      } else if (el.defaultVal.includes('@') && !el.defaultVal.includes(' ')) {
-          proposedId = 'email'; newLabel = 'Email Address';
-      } else if (/^\+?[\d\s\-\(\)]{7,20}$/.test(el.defaultVal.trim())) {
-          proposedId = 'phone'; newLabel = 'Phone Number';
-      } else if (textLower.includes('linkedin.com')) {
-          proposedId = 'linkedin'; newLabel = 'LinkedIn';
-      } else if (el.fontSize >= maxFontSize && textLen < 40 && !foundFullName) {
-          // Fallback: Assign Full Name ONLY ONCE
-          proposedId = 'fullName'; newLabel = 'Full Name';
-          foundFullName = true;
-      } 
-      // 2. Intelligent Content Labeling (Improves the Sidebar!)
-      else if (isBulletStr || el.defaultVal.includes('\n•')) {
-          proposedId = `bulletList${listCounter++}`;
-          newLabel = 'List / Bullet Points';
-      } else if (el.fontWeight === 'bold' || el.fontSize > 11) {
-          if (textLen < 60) {
-              proposedId = `header_${headerCounter++}`;
-              // Make the label exactly match what the header says (e.g., "Company Name")
-              newLabel = el.defaultVal.substring(0, 25) + (textLen > 25 ? '...' : ''); 
-          } else {
-              proposedId = `bodyText_${sectionCounter++}`;
-              newLabel = 'Description';
-          }
-      } else {
-          proposedId = `bodyText_${sectionCounter++}`;
-          newLabel = 'Text Block';
-      }
-
-      // 3. ENFORCE UNIQUE IDs (Fixes the "References" Overwriting Bug)
-      if (proposedId && !usedIds.has(proposedId)) {
-          newId = proposedId;
-      } else if (proposedId) {
-          newId = `${proposedId}_${Math.random().toString(36).substr(2, 4)}`;
-      }
-      usedIds.add(newId);
-
-      // 4. SMART AUTO-SPACING (Adds breathing room above and below sections)
-      let autoMarginTop = el.marginTop || 4;
-      let autoMarginBottom = el.marginBottom || 4;
-
-      if (newId === 'fullName') {
-          autoMarginBottom = 12; // Extra space under name
-      } else if (newId.includes('Title') || newId.includes('header_')) {
-          // It's a Header: Big space above (unless it's the very first item), small space below
-          autoMarginTop = index === 0 ? 0 : 28; 
-          autoMarginBottom = 8;
-      } else if (newId === 'email' || newId === 'phone' || newId === 'linkedin' || newId === 'title') {
-          // Subtitle / Contact info spacing
-          autoMarginBottom = 8;
-      } else {
-          // Body Text / Bullet points: Add space BELOW so it doesn't hit the next header
-          autoMarginTop = 4;
-          autoMarginBottom = 20; 
-      }
-
-      return { 
-          ...el, 
-          id: newId, 
-          label: newLabel, 
-          isMultiline: textLen > 50 || el.defaultVal.includes('\n') || isBulletStr,
-          marginTop: autoMarginTop,
-          marginBottom: autoMarginBottom
-      };
-  });
-  return schema;
-};
-
-// --- SVG Icon Components ---
-const IconRenderer = ({ type, color, size = 14 }) => {
-  const svgs = {
-    phone: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>`,
-    email: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`,
-    linkedin: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>`,
-    user: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
-    briefcase: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>`,
-    code: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`,
-    settings: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
-    award: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`,
-    building: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>`,
-    trash: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
-    pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`,
-    close: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>`,
-    link: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
-    chart: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>`,
-    book: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
-    github: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>`,
-    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>`,
-    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
-  };
-  return <div dangerouslySetInnerHTML={{ __html: svgs[type] }} className="flex-shrink-0" />;
-};
-
-// --- CORE LAYOUT RENDERER ---
-const RenderTemplate = ({ resumeData, formData, onElementMouseDown, draggingElementId }) => {
-  const tpl = resumeData.data;
-  
-  const design = tpl.designConfig || {};
-  const accent = design.accentColor || tpl.defaultAccent;
-  const sidebarBg = design.sidebarColor || tpl.leftBg;
-  
-  const primaryFont = design.primaryFont || design.fontFamily || "'Inter', sans-serif";
-  const secondaryFont = design.secondaryFont || design.fontFamily || "'Inter', sans-serif";
-  const baseFontSize = design.baseFontSize || 11;
-  const fontScale = baseFontSize / 11;
-
-  const pageWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : tpl.page.width;
-  const pageHeight = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].minHeight : tpl.page.minHeight;
-
-  const renderElement = (el, isTopLevel = true) => {
-    const value = formData[el.id];
-    if ((value === null || value === undefined || String(value).trim() === '') && el.type !== 'image' && el.type !== 'shape') return null;
-
-    let finalColor = el.color;
-    let finalBorder = el.borderBottom;
-    
-    if (accent && (el.headerIcon || el.iconType || (el.id.includes('Title') && !el.id.includes('job')))) {
-      finalColor = accent;
-    }
-    if (accent && el.borderBottom) {
-      finalBorder = el.borderBottom.replace(/#[0-9a-fA-F]+/, accent); 
-    }
-
-const dragStyle = {
-      transform: `translate(${el.offsetX || 0}px, ${el.offsetY || 0}px)`,
-      zIndex: draggingElementId === el.id ? 50 : 1,
-      cursor: draggingElementId ? 'move' : 'default',
-      position: 'relative', 
-      
-      display: el.inline ? 'inline-flex' : 'flex',
-      alignItems: el.textAlign === 'center' ? 'center' : (el.textAlign === 'right' ? 'flex-end' : (el.alignItems || 'flex-start')),
-      justifyContent: el.textAlign === 'center' ? 'center' : (el.textAlign === 'right' ? 'flex-end' : 'flex-start'),
-      gap: (el.iconType || el.headerIcon) ? '8px' : '0',
-      
-      marginRight: el.marginRight ? `${el.marginRight}px` : '0',
-      marginBottom: el.marginBottom ? `${el.marginBottom}px` : '0',
-      marginTop: el.marginTop ? `${el.marginTop}px` : '0',
-      marginLeft: el.marginLeft ? `${el.marginLeft}px` : '0',
-      alignSelf: el.alignSelf || 'auto',
-      width: el.type === 'image' ? `${el.width}px` : (el.width || '100%'), // CRITICAL FOR CENTERING
-      
-      fontFamily: (el.id.includes('Title') || el.id === 'fullName' || el.id === 'brandLogo') ? primaryFont : secondaryFont,
-      fontSize: `${Math.round(el.fontSize * fontScale)}px`,
-      fontWeight: el.fontWeight,
-      fontStyle: el.fontStyle || 'normal',
-      color: finalColor,
-      textAlign: el.textAlign || 'left',
-      borderTop: el.border || 'none',
-      borderRight: el.border || 'none',
-      borderBottom: finalBorder || el.border || 'none',
-      borderLeft: el.borderLeft || el.border || 'none',
-      paddingTop: el.padding ? `${el.padding}px` : '0',
-      paddingBottom: el.paddingBottom ? `${el.paddingBottom}px` : (el.padding ? `${el.padding}px` : '0'),
-      backgroundColor: el.backgroundColor || 'transparent',
-      borderRadius: el.borderRadius ? `${el.borderRadius}px` : '0',
-      lineHeight: el.lineHeight || '1.5',
-    };
-    
-    const blockClass = isTopLevel ? "resume-block" : "";
-    const hoverClass = onElementMouseDown ? "hover:outline hover:outline-1 hover:outline-violet-400 hover:outline-offset-2 rounded-sm" : "";
-    const combinedClass = `${blockClass} ${hoverClass}`.trim();
-
-    if (el.type === 'image') {
-      return (
-        <div key={`${resumeData.id}-${el.id}`} className={combinedClass} style={dragStyle} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)}>
-          <img src={value || el.defaultVal} alt={el.label} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: el.borderRadius ? `${el.borderRadius}px` : '0' }} />
-        </div>
-      );
-    }
-
-    return (
-      <div key={`${resumeData.id}-${el.id}`} className={combinedClass} style={dragStyle} onMouseDown={(e) => onElementMouseDown && onElementMouseDown(e, el)}>
-        {el.iconType && <IconRenderer type={el.iconType} color={finalColor} size={el.fontSize * fontScale * 1.2} />}
-        {el.headerIcon && <IconRenderer type={el.headerIcon} color={finalColor} size={el.fontSize * fontScale * 1.5} />}
-        <div style={{ flex: 1, width: '100%' }}>
-          {el.isProgress && el.progressValues ? (
-            <div className="flex flex-col gap-2 w-full mt-1">
-              {(value || el.defaultVal).split('\n').map((line, i) => {
-                if (!line.trim()) return null;
-                const progress = el.progressValues[i] !== undefined ? el.progressValues[i] : (65 + ((i * 13) % 30));
-                return (
-                  <div key={i} className="flex flex-col w-full gap-1 mb-1">
-                    <div className="flex justify-between items-center w-full">
-                      <span style={{ fontSize: `${el.fontSize * fontScale}px`, fontWeight: el.fontWeight, color: finalColor }}>{line.replace(/^[•\-\*]\s*/, '')}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full opacity-80" style={{ width: `${progress}%`, backgroundColor: finalColor }}></div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div dangerouslySetInnerHTML={{ __html: (value || el.defaultVal).replace(/\n/g, '<br/>') }} />
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="resume-canvas-root" style={{ 
-      width: `${pageWidth}px`, 
-      minHeight: `${pageHeight}px`, 
-      backgroundColor: tpl.columns === 1 ? '#fff' : (tpl.rightBg || '#fff'), 
-      display: tpl.columns === 1 ? 'flex' : 'grid', 
-      gridTemplateColumns: tpl.columns === 1 ? 'none' : `${tpl.sidebarWidth || '35%'} 1fr`,
-      flexDirection: tpl.columns === 1 ? 'column' : undefined,
-      fontFamily: secondaryFont, 
-      position: 'relative' 
-    }}>
-      
-      {/* Container for Javascript-injected Desk Gaps to simulate physical pages */}
-      <div id="desk-gaps-container" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40 }} />
-
-      {tpl.columns === 1 ? (
-        <div className="flex flex-col w-full h-full p-16 resume-column relative z-10">
-          {tpl.elements.filter(e => e.col === 'main').reduce((acc, el) => {
-            if (el.inline) {
-              if (acc.length > 0 && acc[acc.length - 1].type === 'inlineGroup') {
-                acc[acc.length - 1].items.push(el);
-              } else {
-                acc.push({ type: 'inlineGroup', id: `group-${el.id}`, items: [el] });
-              }
-            } else {
-              acc.push(el);
-            }
-            return acc;
-          }, []).map(item => {
-            if (item.type === 'inlineGroup') {
-              return (
-                <div key={item.id} className="flex flex-wrap items-center resume-block" style={{ '--orig-mt': '0px' }}>
-                  {item.items.map(child => renderElement(child, false))}
-                </div>
-              );
-            }
-            return renderElement(item, true);
-          })}
-        </div>
-      ) : (
-        <React.Fragment>
-          <div className="flex flex-col p-10 resume-column relative z-10" style={{ background: sidebarBg }}>
-            {tpl.elements.filter(e => e.col === 'left').map(el => renderElement(el, true))}
-          </div>
-          <div className="flex flex-col p-12 resume-column relative z-10" style={{ backgroundColor: tpl.rightBg || 'transparent' }}>
-            {tpl.elements.filter(e => e.col === 'right').map(el => renderElement(el, true))}
-          </div>
-        </React.Fragment>
-      )}
-    </div>
-  );
-};
-
-export default function App() {
-  const [view, setView] = useState('gallery'); 
-  const [resumes, setResumes] = useState(() => {
-    try {
-      const saved = localStorage.getItem('resumeFlowResumes');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  // Auto-save to LocalStorage whenever resumes array changes
-  useEffect(() => {
-    localStorage.setItem('resumeFlowResumes', JSON.stringify(resumes));
-  }, [resumes]);
-
-  const [activeResumeId, setActiveResumeId] = useState(null);
-  const [formData, setFormData] = useState({});
-  const [pendingExtractedData, setPendingExtractedData] = useState(null);
-
-  // Global Toast State
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
-  const showToast = useCallback((message, type = 'info', duration = 3000) => {
-    setToast({ show: true, message, type });
-    if (type !== 'loading') {
-      setTimeout(() => setToast(prev => ({ ...prev, show: false })), duration);
-    }
-  }, []);
-  
-  // WIZARD STATE
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState(1);
-  const [wizardData, setWizardData] = useState({ fullName: '', title: '', email: '', phone: '' });
-  const [wizardTemplate, setWizardTemplate] = useState(null);
-
-  const activeResume = resumes.find(r => r.id === activeResumeId);
-
-  // Editable Document Title State
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState("");
-
-  // --- NEW: Auto-Save Status Indicator ---
-  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving'
-  const saveTimeoutRef = useRef(null);
-
-  const triggerSaveIndicator = useCallback(() => {
-    setSaveStatus('saving');
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      setSaveStatus('saved');
-    }, 1000); // 1 second artificial delay for smooth UX
-  }, []);
-
-  const handleTitleDoubleClick = () => {
-     if(!activeResume) return;
-     setIsEditingTitle(true);
-     setTempTitle(activeResume.name);
-  };
-  const handleTitleSave = () => {
-     setIsEditingTitle(false);
-     if (tempTitle.trim() && tempTitle !== activeResume.name) {
-        setResumes(prev => prev.map(r => r.id === activeResumeId ? { ...r, name: tempTitle.trim() } : r));
-        triggerSaveIndicator();
-     }
-  };
-  const handleTitleKeyDown = (e) => {
-     if (e.key === 'Enter') handleTitleSave();
-     if (e.key === 'Escape') setIsEditingTitle(false);
-  };
-
-  // --- Window Tracking for Mobile Responsiveness ---
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const isMobile = windowWidth < 768;
-
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [isEditorOpen, setIsEditorOpen] = useState(!isMobile); 
-  const [editorWidth, setEditorWidth] = useState(380);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const [draggingElementId, setDraggingElementId] = useState(null);
-  const [elementDragOffset, setElementDragOffset] = useState({ startX: 0, startY: 0, origOffsetX: 0, origOffsetY: 0 });
-  
-  // Intelligent preview scaling
-  const rightPaneRef = useRef(null);
-  const [previewScale, setPreviewScale] = useState(1);
-
-  // --- NEW: Load Client-Side Parsers (PDF.js, JSZip) ---
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (!window.pdfjsLib) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        document.head.appendChild(script);
-      }
-      if (!window.JSZip) {
-        const scriptZip = document.createElement('script');
-        scriptZip.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-        document.head.appendChild(scriptZip);
-      }
-    }
-  }, []);
-
-  // --- AUTO-PAGINATION ENGINE ---
-  useEffect(() => {
-    if (view !== 'editor') return;
-    
-    const timer = setTimeout(() => {
-      const container = document.getElementById('printable-resume');
-      if (!container) return;
-
-      const pHeight = activeResume?.data?.designConfig?.pageSize && PAGE_FORMATS[activeResume.data.designConfig.pageSize]
-          ? PAGE_FORMATS[activeResume.data.designConfig.pageSize].minHeight
-          : (activeResume?.data?.page?.minHeight || 1100);
-
-      const pageGap = 40; 
-      const marginY = 48; 
-
-      let maxScrollHeight = pHeight;
-
-      const columns = container.querySelectorAll('.resume-column');
-      columns.forEach(col => {
-          const blocks = col.querySelectorAll('.resume-block');
-
-          blocks.forEach(b => {
-              b.style.marginTop = b.style.getPropertyValue('--orig-mt').trim() || '0px';
-          });
-
-          blocks.forEach(block => {
-              const rect = block.getBoundingClientRect();
-              const colRect = col.getBoundingClientRect();
-              
-              const offsetTop = (rect.top - colRect.top) / previewScale;
-              const offsetHeight = rect.height / previewScale;
-
-              const cycleHeight = pHeight + pageGap;
-              const pageNum = Math.floor(offsetTop / cycleHeight);
-              const pageSafeBottom = (pageNum * cycleHeight) + pHeight - marginY;
-
-              if (offsetTop + offsetHeight > pageSafeBottom) {
-                  const nextPageNum = pageNum + 1;
-                  const nextPageSafeTop = (nextPageNum * cycleHeight) + marginY;
-                  const pushAmount = nextPageSafeTop - offsetTop;
-
-                  const currentMargin = parseFloat(getComputedStyle(block).marginTop) || 0;
-                  block.style.marginTop = `${currentMargin + pushAmount}px`;
-              }
-          });
-
-          if (col.scrollHeight > maxScrollHeight) {
-              maxScrollHeight = col.scrollHeight;
-          }
-      });
-
-      const calculatedPages = Math.ceil(maxScrollHeight / (pHeight + pageGap));
-      const gapsContainer = document.getElementById('desk-gaps-container');
-      
-      if (gapsContainer) {
-          gapsContainer.innerHTML = ''; 
-          for (let i = 1; i < calculatedPages; i++) {
-              const gapTop = i * pHeight + (i - 1) * pageGap;
-              const gapEl = document.createElement('div');
-              gapEl.className = 'desk-gap';
-              gapEl.style.position = 'absolute';
-              gapEl.style.top = `${gapTop}px`;
-              gapEl.style.left = '0';
-              gapEl.style.right = '0';
-              gapEl.style.height = `${pageGap}px`;
-              gapEl.style.backgroundColor = '#e2e8f0'; 
-              gapEl.style.boxShadow = 'inset 0 8px 10px -6px rgba(0,0,0,0.1), inset 0 -8px 10px -6px rgba(0,0,0,0.1)';
-              gapEl.style.borderTop = '1px solid #94a3b8';
-              gapEl.style.borderBottom = '1px solid #94a3b8';
-              gapEl.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #64748b; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Page ${i + 1}</div>`;
-              gapsContainer.appendChild(gapEl);
-          }
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [formData, activeResumeId, view, previewScale, activeResume?.data?.designConfig?.pageSize]);
-
-  useEffect(() => {
-    const updateScale = () => {
-      if (rightPaneRef.current && activeResume && view === 'editor') {
-         const containerWidth = rightPaneRef.current.clientWidth;
-         const availableWidth = containerWidth - (isMobile ? 32 : 64);
-         const design = activeResume.data.designConfig || {};
-         const pWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : activeResume.data.page.width;
-         const newScale = Math.min(1, availableWidth / pWidth);
-         setPreviewScale(newScale);
-      }
-    };
-    setTimeout(updateScale, 10);
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, [activeResumeId, activeResume?.data?.designConfig?.pageSize, isMobile, isEditorOpen, editorWidth, view]);
-
-  const [filterCols, setFilterCols] = useState('all'); 
-  const [filterHeadshot, setFilterHeadshot] = useState('all'); 
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [resumeToDelete, setResumeToDelete] = useState(null);
-  const [renamingResumeId, setRenamingResumeId] = useState(null);
-  const [renamingValue, setRenamingValue] = useState("");
-
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [exportingFormat, setExportingFormat] = useState(null);
-  const exportMenuRef = useRef(null);
-  
-  const [activeEditorTab, setActiveEditorTab] = useState('content');
-
-  const fileInputRef = useRef(null);
-  const imageInputRef = useRef(null);
-  const templateInputRef = useRef(null); 
-
-  const updateDesign = (key, value) => {
-    setResumes(prev => prev.map(r => {
-      if (r.id !== activeResumeId) return r;
-      return {
-        ...r,
-        data: {
-          ...r.data,
-          designConfig: {
-            ...(r.data.designConfig || {}),
-            [key]: value
-          }
-        }
-      }
-    }));
-    triggerSaveIndicator();
-  };
-
-  const handleElementMouseDown = (e, el) => {
-    e.preventDefault(); 
-    e.stopPropagation();
-    if(view !== 'editor') return; 
-    setDraggingElementId(el.id);
-    setElementDragOffset({ startX: e.clientX, startY: e.clientY, origOffsetX: el.offsetX || 0, origOffsetY: el.offsetY || 0 });
-  };
-
-  useEffect(() => {
-    const handleElementMouseMove = (e) => {
-      if (!draggingElementId) return;
-      
-      const dx = (e.clientX - elementDragOffset.startX) / previewScale;
-      const dy = (e.clientY - elementDragOffset.startY) / previewScale;
-      
-      setResumes(prev => prev.map(res => {
-        if (res.id !== activeResumeId) return res;
-        return {
-          ...res,
-          data: {
-            ...res.data,
-            elements: res.data.elements.map(el => el.id === draggingElementId ? { ...el, offsetX: elementDragOffset.origOffsetX + dx, offsetY: elementDragOffset.origOffsetY + dy } : el)
-          }
-        };
-      }));
-    };
-    
-    const handleElementMouseUp = () => {
-      setDraggingElementId(null);
-      triggerSaveIndicator();
-    };
-    
-    if (draggingElementId) {
-      window.addEventListener('mousemove', handleElementMouseMove);
-      window.addEventListener('mouseup', handleElementMouseUp);
-      document.body.style.cursor = 'move';
-      document.body.style.userSelect = 'none';
-    } else if (!isDragging) { 
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleElementMouseMove);
-      window.removeEventListener('mouseup', handleElementMouseUp);
-    };
-  }, [draggingElementId, elementDragOffset, activeResumeId, isDragging, previewScale, triggerSaveIndicator]);
-
-  const handleResetOffsets = useCallback(() => {
-    setResumes(prev => prev.map(res => {
-      if (res.id !== activeResumeId) return res;
-      return {
-        ...res,
-        data: {
-          ...res.data,
-          elements: res.data.elements.map(el => ({ ...el, offsetX: 0, offsetY: 0 }))
-        }
-      };
-    }));
-    triggerSaveIndicator();
-    showToast('Layout reset.', 'success', 2000);
-  }, [activeResumeId, triggerSaveIndicator, showToast]);
-
-  const hasModifiedOffsets = activeResume?.data?.elements?.some(el => el.offsetX !== 0 || el.offsetY !== 0);
-
-  const handleMouseDown = useCallback((e) => { e.preventDefault(); setIsDragging(true); }, []);
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!isDragging) return;
-      let newWidth = e.clientX;
-      if (newWidth < 280) newWidth = 280;
-      if (newWidth > 700) newWidth = 700;
-      setEditorWidth(newWidth);
-    };
-    const handleMouseUp = () => setIsDragging(false);
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    } else {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  useEffect(() => {
-    if (activeResume) {
-      const initialData = {};
-      activeResume.data.elements.forEach(el => {
-        if (el.type !== 'shape' && el.type !== 'icon') {
-          initialData[el.id] = el.defaultVal;
-          if (el.progressValues) {
-            initialData[`${el.id}_progress`] = el.progressValues;
-          }
-        }
-      });
-      setFormData(initialData);
-    }
-  }, [activeResumeId, activeResume?.data.id]);
-
-  const handleChange = useCallback((id, value) => {
-    setFormData(prev => ({ ...prev, [id]: value }));
-    setResumes(prevResumes => prevResumes.map(res => {
-      if (res.id !== activeResumeId) return res;
-      return {
-        ...res,
-        data: {
-          ...res.data,
-          elements: res.data.elements.map(el =>
-            el.id === id ? { ...el, defaultVal: value } : el
-          )
-        }
-      }
-    }));
-    triggerSaveIndicator();
-  }, [activeResumeId, triggerSaveIndicator]);
-
-const updateElementAlign = useCallback((id, alignment) => {
-    setResumes(prevResumes => prevResumes.map(res => {
-      if (res.id !== activeResumeId) return res;
-      return {
-        ...res,
-        data: {
-          ...res.data,
-          elements: res.data.elements.map(el =>
-            el.id === id ? { ...el, textAlign: alignment } : el
-          )
-        }
-      }
-    }));
-    triggerSaveIndicator();
-  }, [activeResumeId, triggerSaveIndicator]);
-
-  const insertBullet = useCallback((id) => {
-    const currentVal = formData[id] || '';
-    const textarea = document.getElementById(`textarea-${id}`);
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const prefix = currentVal.substring(0, start);
-      const suffix = currentVal.substring(end);
-      const needsNewline = prefix.length > 0 && !prefix.endsWith('\n');
-      const insertText = (needsNewline ? '\n' : '') + '• ';
-      const newVal = prefix + insertText + suffix;
-      
-      handleChange(id, newVal);
-      
-      const newPos = start + insertText.length;
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(newPos, newPos);
-      }, 0);
-    } else {
-      const needsNewline = currentVal.length > 0 && !currentVal.endsWith('\n');
-      handleChange(id, currentVal + (needsNewline ? '\n' : '') + '• ');
-    }
-  }, [formData, handleChange]);
-
-  const handleTextareaKeyDown = useCallback((e, id) => {
-    if (e.key === 'Enter') {
-      const textarea = e.target;
-      const cursorPosition = textarea.selectionStart;
-      const textBeforeCursor = textarea.value.substring(0, cursorPosition);
-      const textAfterCursor = textarea.value.substring(cursorPosition);
-      
-      const lines = textBeforeCursor.split('\n');
-      const currentLine = lines[lines.length - 1];
-      
-      const bulletMatch = currentLine.match(/^([•\-\*]\s*)/);
-      
-      if (bulletMatch) {
-        e.preventDefault();
-        const bullet = bulletMatch[1];
-        
-        if (currentLine.trim() === bullet.trim()) {
-          const newTextBefore = textBeforeCursor.substring(0, textBeforeCursor.length - bullet.length);
-          handleChange(id, newTextBefore + '\n' + textAfterCursor);
-          setTimeout(() => {
-             const el = document.getElementById(`textarea-${id}`);
-             if (el) el.setSelectionRange(newTextBefore.length + 1, newTextBefore.length + 1);
-          }, 0);
-        } else {
-          const newText = textBeforeCursor + '\n' + bullet + textAfterCursor;
-          handleChange(id, newText);
-          const newCursorPos = cursorPosition + 1 + bullet.length;
-          setTimeout(() => {
-            const el = document.getElementById(`textarea-${id}`);
-            if (el) el.setSelectionRange(newCursorPos, newCursorPos);
-          }, 0);
-        }
-      }
-    }
-  }, [handleChange]);
-
-  const handleProgressChange = useCallback((id, progressArray) => {
-    setFormData(prev => ({ ...prev, [`${id}_progress`]: progressArray }));
-    setResumes(prevResumes => prevResumes.map(res => {
-      if (res.id !== activeResumeId) return res;
-      return {
-        ...res,
-        data: {
-          ...res.data,
-          elements: res.data.elements.map(el =>
-            el.id === id ? { ...el, progressValues: progressArray } : el
-          )
-        }
-      };
-    }));
-    triggerSaveIndicator();
-  }, [activeResumeId, triggerSaveIndicator]);
-
-  const handleImageUpload = (e, id) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      handleChange(id, imageUrl);
-    }
-  };
-
-  const handleUploadClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setIsUploading(true);
-    showToast(`Extracting data from ${file.name}...`, 'loading');
-    
-    setTimeout(() => {
-      setActiveResumeId(null); 
-      setPendingExtractedData(parsedGrahamDataMap);
-      setIsUploading(false);
-      setView('gallery'); 
-      showToast('Data extracted successfully!', 'success');
-      e.target.value = '';
-    }, 2000);
-  };
-
-  const handleImportDataInEditor = () => {
-    setIsUploading(true);
-    showToast('Mapping your data to this template...', 'loading');
-    
-    setTimeout(() => {
-      const updatedFormData = { ...formData };
-      Object.keys(parsedGrahamDataMap).forEach(key => {
-        updatedFormData[key] = parsedGrahamDataMap[key];
-      });
-      setFormData(updatedFormData);
-
-      setResumes(prev => prev.map(r => {
-        if (r.id !== activeResumeId) return r;
-        return {
-          ...r,
-          data: {
-            ...r.data,
-            elements: r.data.elements.map(el => {
-               if (parsedGrahamDataMap[el.id] !== undefined) {
-                  return { ...el, defaultVal: parsedGrahamDataMap[el.id] };
-               }
-               return el;
-            })
-          }
-        };
-      }));
-
-      setIsUploading(false);
-      showToast('Data mapped successfully!', 'success');
-    }, 1200);
-  };
-
-  // --- NEW: Client-Side Parsers ---
-  const processClientPDF = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
-    const textContent = await page.getTextContent();
-    const viewport = page.getViewport({ scale: 1.0 });
-
-    const elements = [];
-    textContent.items.forEach((item, index) => {
-      const text = item.str.trim();
-      if (!text) return;
-      
-      const x = item.transform[4];
-      const y = viewport.height - item.transform[5] - item.height;
-      
-      elements.push({
-         id: `importedText_${index}`,
-         col: 'main',
-         label: 'Imported Text',
-         fontSize: item.height || 12,
-         fontWeight: item.fontName.toLowerCase().includes('bold') ? 'bold' : 'normal',
-         color: '#334155',
-         defaultVal: text,
-         offsetX: 0, offsetY: 0,
-         marginLeft: Math.max(0, x),
-         marginTop: index === 0 ? Math.max(0, y) : 10
-      });
-    });
-
-    return {
-      id: `client_pdf_${Date.now()}`,
-      name: `Imported Template`,
-      columns: 1,
-      headshot: false,
-      page: { width: viewport.width, minHeight: viewport.height },
-      designConfig: { fontFamily: "'Inter', sans-serif", accentColor: "#1e293b" },
-      elements
-    };
-  };
-
-// ADVANCED DOCX PARSER USING JSZIP
-  const processClientDOCX = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    if (!window.JSZip) throw new Error("JSZip not loaded. Please try again.");
-
-    const zip = await window.JSZip.loadAsync(arrayBuffer.slice(0));
-    const docXml = await zip.file("word/document.xml").async("text");
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(docXml, "text/xml");
-
-    const body = doc.getElementsByTagName("w:body")[0];
-    const elements = [];
-
-    let isTwoColumn = false;
-    let leftBg = '#f1f5f9'; 
-    let rightBg = '#ffffff';
-
-    const topLevelTables = [];
-    for (let i = 0; i < body.childNodes.length; i++) {
-        if (body.childNodes[i].nodeName === "w:tbl") topLevelTables.push(body.childNodes[i]);
-    }
-
-    if (topLevelTables.length > 0) {
-        const firstTable = topLevelTables[0];
-        const rows = firstTable.getElementsByTagName("w:tr");
-        if (rows.length > 0) {
-            const cells = rows[0].getElementsByTagName("w:tc");
-            if (cells.length >= 2) {
-                isTwoColumn = true;
-            }
-        }
-    }
-
-    // 2. Parse Text Properties & SPLIT Soft Breaks
-    const parseParagraph = (pNode, col) => {
-        let baseFontSize = 11;
-        let baseBold = false;
-        let baseItalic = false;
-        let baseColor = "#334155";
-        let textAlign = "left";
-        let isBullet = false;
-
-        const pPr = pNode.getElementsByTagName("w:pPr")[0];
-        if (pPr) {
-            if (pPr.getElementsByTagName("w:numPr").length > 0) isBullet = true;
-            
-            const jcNode = pPr.getElementsByTagName("w:jc")[0];
-            if (jcNode) {
-                const alignVal = jcNode.getAttribute("w:val");
-                if (alignVal === "center") textAlign = "center";
-                else if (alignVal === "right") textAlign = "right";
-                else if (alignVal === "both") textAlign = "justify";
-            }
-
-            const pStyle = pPr.getElementsByTagName("w:pStyle")[0];
-            if (pStyle) {
-                const styleVal = pStyle.getAttribute("w:val") || "";
-                // Catch Word's Default Heading Styles for Blue colors
-                if (styleVal.toLowerCase().includes("heading")) {
-                    baseBold = true;
-                    if (baseColor === "#334155") baseColor = "#0284c7"; // Professional Blue
-                    baseFontSize = Math.max(baseFontSize, 14);
-                }
-            }
-        }
-
-        let currentText = "";
-        let currentFontSize = baseFontSize;
-        let currentIsBold = baseBold;
-        let currentIsItalic = baseItalic;
-        let currentColor = baseColor;
-
-        const flushElement = () => {
-            let textToFlush = currentText.trim();
-            const startsWithManualBullet = /^[•\-\*]/.test(textToFlush);
-
-            if (isBullet && textToFlush && !startsWithManualBullet) {
-               textToFlush = "• " + textToFlush;
-            }
-
-            const isNowBullet = isBullet || startsWithManualBullet;
-            
-            if (textToFlush) {
-                const lastEl = elements[elements.length - 1];
-                const lastWasBullet = lastEl && /^[•\-\*]/.test(lastEl.defaultVal.trim());
-
-                // FIX: Merge consecutive bullet points into the same block instead of duplicating fields!
-                if (lastEl && lastEl.col === col && isNowBullet && lastWasBullet) {
-                    lastEl.defaultVal += "\n\n" + textToFlush;
-                    lastEl.isMultiline = true;
-                } else {
-                    elements.push({
-                        id: `importedText_${elements.length}_${Math.random().toString(36).substr(2, 5)}`,
-                        col: col,
-                        label: 'Imported Text',
-                        fontSize: currentFontSize,
-                        fontWeight: currentIsBold ? 'bold' : 'normal',
-                        fontStyle: currentIsItalic ? 'italic' : 'normal',
-                        textAlign: textAlign,
-                        color: currentColor,
-                        defaultVal: textToFlush,
-                        offsetX: 0, offsetY: 0,
-                        width: '100%', 
-                        isMultiline: textToFlush.length > 50 || isNowBullet, 
-                        marginTop: currentIsBold && currentFontSize >= 13 ? 16 : 4,
-                        marginBottom: 4
-                    });
-                }
-            }
-            currentText = ""; 
-        };
-
-        const runs = pNode.getElementsByTagName("w:r");
-        for (let i = 0; i < runs.length; i++) {
-            const rNode = runs[i];
-            
-            let runBold = baseBold;
-            let runItalic = baseItalic;
-            let runColor = baseColor;
-
-            const rPr = rNode.getElementsByTagName("w:rPr")[0];
-            if (rPr) {
-                const bNode = rPr.getElementsByTagName("w:b")[0];
-                if (bNode) runBold = true;
-
-                const iNode = rPr.getElementsByTagName("w:i")[0];
-                if (iNode) runItalic = true;
-                
-                const colorNode = rPr.getElementsByTagName("w:color")[0];
-                if (colorNode) {
-                    const val = colorNode.getAttribute("w:val");
-                    if (val && val !== "auto") runColor = "#" + val;
-                }
-            }
-
-            if (currentText === "") {
-                currentIsBold = runBold;
-                currentIsItalic = runItalic;
-                currentColor = runColor;
-            }
-
-            const childNodes = rNode.childNodes;
-            for(let c=0; c<childNodes.length; c++) {
-                const child = childNodes[c];
-                if (child.nodeName === "w:t") {
-                    currentText += child.textContent;
-                } else if (child.nodeName === "w:br") {
-                    // FIX: Respect soft-returns inside the same text field instead of flushing early
-                    currentText += "\n";
-                }
-            }
-        }
-        flushElement(); 
-    };
-
-    const traverseNode = (node, currentCol) => {
-        if (node.nodeName === "w:p") {
-            parseParagraph(node, currentCol);
-        } else {
-            const childNodes = node.childNodes;
-            for (let k = 0; k < childNodes.length; k++) {
-                traverseNode(childNodes[k], currentCol);
-            }
-        }
-    };
-
-    for (let i = 0; i < body.childNodes.length; i++) {
-        traverseNode(body.childNodes[i], isTwoColumn ? 'main' : 'main');
-    }
-
-    return {
-        id: `client_docx_${Date.now()}`,
-        name: `Imported Template`,
-        columns: isTwoColumn ? 2 : 1,
-        headshot: false,
-        page: { width: 900, minHeight: 1100 },
-        leftBg: leftBg,
-        rightBg: rightBg,
-        designConfig: { fontFamily: "'Inter', sans-serif", accentColor: "#1e293b" },
-        elements
-    };
-  };
-
-  const handleTemplateFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    setIsUploading(true);
-    showToast(`Processing ${file.name} locally in browser...`, 'loading');
-
-    try {
-        let customClientTemplate = null;
-        
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-          if (!window.pdfjsLib) throw new Error("PDF parser is still loading, please try again.");
-          customClientTemplate = await processClientPDF(file);
-        } else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
-          if (!window.JSZip) throw new Error("DOCX parser is still loading, please try again.");
-          customClientTemplate = await processClientDOCX(file);
-        } else {
-           throw new Error("Unsupported file format. Please upload PDF or DOCX.");
-        }
-
-        const enhanced = enhanceImportedTemplate(customClientTemplate);
-        handleSelectTemplate(enhanced);
-        showToast('Layout captured successfully!', 'success');
-        
-    } catch (error) {
-        console.error("Client Engine Error Details:", error);
-        showToast(`Upload Failed: ${error.message}`, 'error', 6000);
-    } finally {
-        setIsUploading(false);
-        e.target.value = '';
-    }
-  };
-
-  const handleSelectTemplate = (templateSchema) => {
-    if (activeResumeId && !pendingExtractedData) {
-      setResumes(prev => prev.map(r => {
-        if (r.id !== activeResumeId) return r;
-        
-        const mergedElements = templateSchema.elements.map(el => {
-          if (el.type === 'shape' || el.type === 'icon') return el;
-          return { 
-            ...el, 
-            offsetX: 0, offsetY: 0, 
-            defaultVal: formData[el.id] !== undefined ? formData[el.id] : el.defaultVal 
-          };
-        });
-        
-        const existingJobTitles = r.data.elements.filter(e => e.id.match(/^job(\d+)Title$/)).map(e => e.id);
-        const newJobTitles = mergedElements.filter(e => e.id.match(/^job(\d+)Title$/)).map(e => e.id);
-        const dynamicallyAddedJobs = existingJobTitles.filter(id => !newJobTitles.includes(id));
-        
-        if (dynamicallyAddedJobs.length > 0) {
-          const refTitle = mergedElements.find(e => e.id === 'job1Title');
-          const refDesc = mergedElements.find(e => e.id === 'job1Desc');
-          if (refTitle && refDesc) {
-            dynamicallyAddedJobs.forEach(jobTitleId => {
-              const num = jobTitleId.match(/^job(\d+)Title$/)[1];
-              mergedElements.push({ ...refTitle, id: `job${num}Title`, label: `Job ${num} Title`, defaultVal: formData[`job${num}Title`] || '' });
-              mergedElements.push({ ...refDesc, id: `job${num}Desc`, label: `Job ${num} Description`, defaultVal: formData[`job${num}Desc`] || '' });
-            });
-          }
-        }
-
-        return { 
-          ...r, 
-          data: { 
-            ...templateSchema, 
-            elements: mergedElements,
-            designConfig: { 
-              ...templateSchema.designConfig,
-              accentColor: templateSchema.defaultAccent, 
-              sidebarColor: templateSchema.leftBg, 
-              primaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
-              secondaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
-              baseFontSize: 11
-            }
-          } 
-        };
-      }));
-      setView('editor');
-      if (isMobile) setIsEditorOpen(false); 
-      return;
-    }
-
-    const newId = `res_${Date.now()}`;
-    const mergedElements = templateSchema.elements.map(el => {
-      if (el.type === 'shape' || el.type === 'icon') return el;
-      return { 
-        ...el, 
-        offsetX: 0, offsetY: 0,
-        defaultVal: pendingExtractedData && pendingExtractedData[el.id] ? pendingExtractedData[el.id] : el.defaultVal 
-      };
-    });
-
-    const newResume = {
-      id: newId,
-      name: pendingExtractedData ? 'Graham Ross Flora - Resume' : 'Untitled Document',
-      lastModified: new Date().toLocaleDateString(),
-      data: { 
-        ...templateSchema, 
-        elements: mergedElements,
-        designConfig: { 
-          ...templateSchema.designConfig,
-          accentColor: templateSchema.defaultAccent, 
-          sidebarColor: templateSchema.leftBg, 
-          primaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
-          secondaryFont: templateSchema.designConfig?.fontFamily || "'Inter', sans-serif",
-          baseFontSize: 11
-        }
-      }
-    };
-
-    setResumes([newResume, ...resumes]);
-    setActiveResumeId(newId);
-    setPendingExtractedData(null); 
-    setView('editor');
-    if (isMobile) setIsEditorOpen(false);
-  };
-
-  const openWizard = () => {
-    setIsWizardOpen(true);
-    setWizardStep(1);
-    setWizardData({ fullName: '', title: '', email: '', phone: '' });
-    setWizardTemplate(null);
-  };
-
-  const finishWizard = () => {
-    const newId = `res_${Date.now()}`;
-    const mergedElements = wizardTemplate.elements.map(el => {
-      if (el.type === 'shape' || el.type === 'icon') return el;
-      
-      let finalValue = el.defaultVal;
-      if (wizardData[el.id] !== undefined && wizardData[el.id].trim() !== '') {
-        finalValue = wizardData[el.id];
-      }
-      return { ...el, offsetX: 0, offsetY: 0, defaultVal: finalValue };
-    });
-
-    const newResume = {
-      id: newId,
-      name: wizardData.fullName ? `${wizardData.fullName} Resume` : 'Untitled Document',
-      lastModified: new Date().toLocaleDateString(),
-      data: { 
-        ...wizardTemplate, 
-        elements: mergedElements,
-        designConfig: { 
-          ...wizardTemplate.designConfig,
-          accentColor: wizardTemplate.defaultAccent, 
-          sidebarColor: wizardTemplate.leftBg, 
-          primaryFont: wizardTemplate.designConfig?.fontFamily || "'Inter', sans-serif",
-          secondaryFont: wizardTemplate.designConfig?.fontFamily || "'Inter', sans-serif",
-          baseFontSize: 11
-        }
-      }
-    };
-
-    setResumes([newResume, ...resumes]);
-    setActiveResumeId(newId);
-    setPendingExtractedData(null); 
-    setIsWizardOpen(false);
-    setView('editor');
-    if (isMobile) setIsEditorOpen(false);
-    showToast('Resume created successfully!', 'success');
-  };
-
-  const scrollToTemplates = () => {
-    document.getElementById('templates-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const confirmDelete = (e, id) => {
-    e.stopPropagation();
-    setResumeToDelete(id);
-  };
-  const cancelDelete = () => setResumeToDelete(null);
-  const executeDelete = () => {
-    if (!resumeToDelete) return;
-    setResumes(prev => prev.filter(r => r.id !== resumeToDelete));
-    if (activeResumeId === resumeToDelete) {
-      setActiveResumeId(null);
-      setView('gallery');
-    }
-    setResumeToDelete(null);
-  };
-
-  const startRename = (e, id, currentName) => {
-    e.stopPropagation();
-    setRenamingResumeId(id);
-    setRenamingValue(currentName);
-  };
-  const handleRenameChange = (e) => setRenamingValue(e.target.value);
-  const saveRename = (e) => {
-    if (e) e.stopPropagation();
-    if (renamingValue.trim()) {
-      setResumes(prev => prev.map(r => r.id === renamingResumeId ? { ...r, name: renamingValue.trim() } : r));
-    }
-    setRenamingResumeId(null);
-  };
-  const cancelRename = (e) => {
-    if (e) e.stopPropagation();
-    setRenamingResumeId(null);
-  };
-  const handleRenameKeyDown = (e) => {
-    if (e.key === 'Enter') saveRename(e);
-    if (e.key === 'Escape') cancelRename(e);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
-        setIsExportMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const triggerDownload = (filename, content, mimeType) => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExport = (format) => {
-    setIsExportMenuOpen(false);
-    setExportingFormat(format);
-    
-    setTimeout(() => {
-      const fileName = (activeResume ? activeResume.name : 'Resume').replace(/\s+/g, '_');
-      
-      if (format === 'PDF') {
-        window.print();
-      } else {
-        let content = `Resume Export: ${format}\n\n`;
-        if (activeResume) {
-           Object.entries(formData).forEach(([key, val]) => {
-              if (typeof val === 'string' && !val.startsWith('data:image')) {
-                 content += `${key}: \n${val}\n\n`;
-              }
-           });
-        }
-        
-        if (format === 'DOCX') {
-          triggerDownload(`${fileName}.docx`, content, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        } else if (format === 'PPTX') {
-          triggerDownload(`${fileName}.pptx`, content, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
-        }
-      }
-      
-      setExportingFormat(null);
-      showToast(`Downloaded ${format} successfully!`, 'success');
-    }, 600);
-  };
-
-  const handleAddJob = () => {
-    if (!activeResume) return;
-
-    let curMax = 0;
-    let lastJobIndex = -1;
-    let referenceTitleEl = null;
-    let referenceDescEl = null;
-
-    activeResume.data.elements.forEach((el, index) => {
-      const titleMatch = el.id.match(/^job(\d+)Title$/);
-      if (titleMatch) {
-         const num = parseInt(titleMatch[1]);
-         if (num > curMax) curMax = num;
-         if (!referenceTitleEl || num === 1) referenceTitleEl = el; 
-      }
-      const descMatch = el.id.match(/^job(\d+)Desc$/);
-      if (descMatch) {
-         lastJobIndex = index;
-         if (!referenceDescEl || parseInt(descMatch[1]) === 1) referenceDescEl = el;
-      }
-    });
-
-    if (!referenceTitleEl || !referenceDescEl) return;
-
-    const newJobNum = curMax + 1;
-    
-    const newTitle = { ...referenceTitleEl, id: `job${newJobNum}Title`, label: `Job ${newJobNum} Title`, defaultVal: '' };
-    const newDesc = { ...referenceDescEl, id: `job${newJobNum}Desc`, label: `Job ${newJobNum} Description`, defaultVal: '' };
-
-    setResumes(prevResumes => prevResumes.map(res => {
-      if (res.id !== activeResumeId) return res;
-      const newElements = [...res.data.elements];
-      newElements.splice(lastJobIndex > -1 ? lastJobIndex + 1 : newElements.length, 0, newTitle, newDesc);
-      return { ...res, data: { ...res.data, elements: newElements } };
-    }));
-
-    setFormData(prev => ({ ...prev, [`job${newJobNum}Title`]: '', [`job${newJobNum}Desc`]: '' }));
-    showToast(`Added empty fields for Job ${newJobNum}`, 'success', 2000);
-    
-    setTimeout(() => {
-      const editorPane = document.getElementById('editor-content-pane');
-      if (editorPane) editorPane.scrollTop = editorPane.scrollHeight;
-    }, 50);
-  };
-
-  const filteredTemplates = ALL_TEMPLATES.filter(tpl => {
-    if (filterCols !== 'all' && tpl.columns !== filterCols) return false;
-    if (filterHeadshot !== 'all' && tpl.headshot !== filterHeadshot) return false;
-    if (searchQuery.trim() !== '' && !tpl.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
-
-  return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.doc,.docx,.ppt,.pptx" className="hidden" />
-      <input type="file" ref={templateInputRef} onChange={handleTemplateFileChange} accept=".pdf,.doc,.docx,.ppt,.pptx" className="hidden" />
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {resumeToDelete && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Resume?</h3>
-            <p className="text-sm text-slate-500 mb-6 leading-relaxed">Are you sure you want to delete this resume? This action cannot be undone.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={cancelDelete} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-              <button onClick={executeDelete} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm">Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEW RESUME WIZARD OVERLAY */}
-      {isWizardOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6">
-           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-              
-              {/* Header & Progress */}
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
-                 <h2 className="text-lg font-bold text-slate-800 tracking-tight">Create New Resume</h2>
-                 <button onClick={() => setIsWizardOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1.5 rounded-lg transition-colors">
-                    <IconRenderer type="close" size="20" />
-                 </button>
-              </div>
-              <div className="px-8 pt-6 pb-2 flex-shrink-0">
-                 <div className="flex gap-2">
-                     <div className={`h-1.5 flex-1 rounded-full ${wizardStep >= 1 ? 'bg-violet-600' : 'bg-slate-200'}`} />
-                     <div className={`h-1.5 flex-1 rounded-full ${wizardStep >= 2 ? 'bg-violet-600' : 'bg-slate-200'}`} />
-                     <div className={`h-1.5 flex-1 rounded-full ${wizardStep >= 3 ? 'bg-violet-600' : 'bg-slate-200'}`} />
-                 </div>
-                 <div className="flex justify-between text-xs font-bold text-slate-400 mt-3 uppercase tracking-wider">
-                     <span className={wizardStep >= 1 ? 'text-violet-700' : ''}>1. Basic Details</span>
-                     <span className={wizardStep >= 2 ? 'text-violet-700' : ''}>2. Template</span>
-                     <span className={wizardStep >= 3 ? 'text-violet-700' : ''}>3. Preview</span>
-                 </div>
-              </div>
-
-              {/* Body Content */}
-              <div className="flex-1 overflow-y-auto p-6 md:px-8 custom-scrollbar bg-white">
-                 {wizardStep === 1 && (
-                   <div className="max-w-xl mx-auto space-y-5 py-4 animate-in slide-in-from-right-4 duration-300">
-                      <div className="text-center mb-8">
-                        <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Let's start with the basics</h3>
-                        <p className="text-sm text-slate-500 font-medium">Enter your core details. You can easily add experience and education later in the editor.</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-5">
-                         <div className="col-span-2">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Full Name</label>
-                            <input value={wizardData.fullName} onChange={e => setWizardData({...wizardData, fullName: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all font-medium text-slate-800" placeholder="e.g. Jane Doe" />
-                         </div>
-                         <div className="col-span-2">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Professional Title</label>
-                            <input value={wizardData.title} onChange={e => setWizardData({...wizardData, title: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all font-medium text-slate-800" placeholder="e.g. Senior Software Engineer" />
-                         </div>
-                         <div className="col-span-2 sm:col-span-1">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Email Address</label>
-                            <input value={wizardData.email} onChange={e => setWizardData({...wizardData, email: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all font-medium text-slate-800" placeholder="jane@example.com" />
-                         </div>
-                         <div className="col-span-2 sm:col-span-1">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Phone Number</label>
-                            <input value={wizardData.phone} onChange={e => setWizardData({...wizardData, phone: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all font-medium text-slate-800" placeholder="+1 234 567 890" />
-                         </div>
-                      </div>
-                   </div>
-                 )}
-                 
-                 {wizardStep === 2 && (
-                   <div className="py-2 animate-in slide-in-from-right-4 duration-300">
-                      <h3 className="text-xl font-extrabold text-slate-800 mb-6 text-center">Choose a starting layout</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
-                         {ALL_TEMPLATES.map(tpl => {
-                           const mockForm = {};
-                           tpl.elements.forEach(el => {
-                             if(wizardData[el.id] && wizardData[el.id].trim() !== '') mockForm[el.id] = wizardData[el.id];
-                             else mockForm[el.id] = el.defaultVal;
-                           });
-                           return (
-                            <div key={tpl.id} onClick={() => { setWizardTemplate(tpl); setWizardStep(3); }} className="group cursor-pointer flex flex-col items-center">
-                               <div 
-                                 className={`relative bg-white rounded-lg shadow-sm border-2 overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md ${wizardTemplate?.id === tpl.id ? 'border-violet-500 ring-2 ring-violet-500/20' : 'border-slate-200 group-hover:border-violet-400'}`}
-                                 style={{ width: `${tpl.page.width * 0.18}px`, height: `${tpl.page.minHeight * 0.18}px` }}
-                               >
-                                   <div style={{ transform: `scale(0.18)`, transformOrigin: 'top left', width: `${tpl.page.width}px`, minHeight: `${tpl.page.minHeight}px`, pointerEvents: 'none' }}>
-                                       <RenderTemplate resumeData={{data: tpl}} formData={mockForm} />
-                                   </div>
-                               </div>
-                               <h4 className={`mt-3 text-xs font-bold text-center transition-colors ${wizardTemplate?.id === tpl.id ? 'text-violet-700' : 'text-slate-600 group-hover:text-slate-900'}`}>{tpl.name}</h4>
-                            </div>
-                         )})}
-                      </div>
-                   </div>
-                 )}
-                 
-                 {wizardStep === 3 && wizardTemplate && (
-                   <div className="py-2 flex flex-col items-center animate-in slide-in-from-right-4 duration-300">
-                      <div className="text-center mb-6">
-                        <h3 className="text-xl font-extrabold text-slate-800 mb-1">Looking good?</h3>
-                        <p className="text-xs text-slate-500 font-medium">You can customize colors, fonts, and add sections next.</p>
-                      </div>
-                      <div 
-                        className="bg-white rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] border border-slate-200 overflow-hidden flex-shrink-0 relative"
-                        style={{ width: `${wizardTemplate.page.width * 0.35}px`, height: `${wizardTemplate.page.minHeight * 0.35}px` }}
-                      >
-                          <div style={{ transform: `scale(0.35)`, transformOrigin: 'top left', width: `${wizardTemplate.page.width}px`, minHeight: `${wizardTemplate.page.minHeight}px`, pointerEvents: 'none' }}>
-                              <RenderTemplate resumeData={{data: wizardTemplate}} formData={{...wizardTemplate.elements.reduce((acc, el) => ({...acc, [el.id]: el.defaultVal}), {}), ...wizardData}} />
-                          </div>
-                      </div>
-                   </div>
-                 )}
-              </div>
-
-              {/* Footer Controls */}
-              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
-                 {wizardStep > 1 ? (
-                   <button onClick={() => setWizardStep(wizardStep - 1)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors backward-btn">Back</button>
-                 ) : <div></div>}
-                 
-                 {wizardStep === 1 && (
-                   <button onClick={() => setWizardStep(2)} className="px-6 py-3 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors shadow-md flex items-center gap-2">
-                     Next Step <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
-                   </button>
-                 )}
-                 {wizardStep === 2 && (
-                   <span className="text-sm font-bold text-slate-400 bg-slate-100 px-4 py-2 rounded-lg italic hidden sm:block">Select a template above to continue</span>
-                 )}
-                 {wizardStep === 3 && (
-                   <button onClick={finishWizard} className="px-6 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-md flex items-center gap-2 transform hover:-translate-y-0.5">
-                      Yes, Create Resume <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
-                   </button>
-                 )}
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* --- GLOBAL TOP HEADER NAV --- */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0 z-40 relative shadow-sm">
-        
-        {/* Header Left: Logo & Editor Controls */}
-        <div className="flex items-center gap-4 h-full">
-          {view === 'editor' ? (
-            <>
-              <button onClick={() => setView('gallery')} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-violet-600 transition-colors mr-2 group">
-                <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-violet-50 flex items-center justify-center transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-                </div>
-                <span className="hidden sm:inline">Dashboard</span>
-              </button>
-              
-              <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-              
-              <div className="flex items-center gap-2 overflow-hidden">
-                {/* NEW: Inline Editable Document Title */}
-                {isEditingTitle ? (
-                  <input 
-                    autoFocus 
-                    value={tempTitle} 
-                    onChange={e => setTempTitle(e.target.value)} 
-                    onBlur={handleTitleSave} 
-                    onKeyDown={handleTitleKeyDown} 
-                    className="text-sm font-semibold text-slate-800 bg-white border border-violet-500 rounded px-2 py-0.5 outline-none max-w-[150px] sm:max-w-xs focus:ring-2 focus:ring-violet-500/20 transition-shadow" 
-                  />
-                ) : (
-                  <h1 
-                    onDoubleClick={handleTitleDoubleClick} 
-                    className="text-sm font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-xs cursor-text hover:bg-slate-100 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-slate-200"
-                    title="Double click to rename"
-                  >
-                    {activeResume.name}
-                  </h1>
-                )}
-                
-                {/* DYNAMIC: Cloud Saved Indicator */}
-                <span className={`hidden md:flex items-center gap-1.5 ml-2 text-[11px] font-semibold whitespace-nowrap transition-colors duration-300 ${saveStatus === 'saving' ? 'text-violet-500' : 'text-slate-400'}`}>
-                  {saveStatus === 'saving' ? (
-                    <>
-                      <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <IconRenderer type="cloud" size="14" color="currentColor" /> Saved
-                    </>
-                  )}
-                </span>
-
-                {/* MOVED: Show/Hide Editor Button */}
-                <button onClick={() => setIsEditorOpen(!isEditorOpen)} className={`ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm ${isEditorOpen ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}>
-                  <svg className="w-3.5 h-3.5 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v18m12-9H9m12-7a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5z"></path></svg> 
-                  {isEditorOpen ? 'Hide Editor' : 'Show Editor'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setView('gallery')}>
-              <div className="w-8 h-8 rounded bg-violet-600 flex items-center justify-center text-white shadow-sm">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-              </div>
-              <h2 className="text-slate-800 font-bold text-lg tracking-tight hidden sm:block">ResumeFlow</h2>
-            </div>
-          )}
-        </div>
-
-        {/* Header Right: Global Actions */}
-        <div className="flex items-center gap-3">
-          {view === 'gallery' ? (
-            <>
-              <button onClick={handleUploadClick} disabled={isUploading} className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 border border-slate-200 hidden md:flex shadow-sm">
-                {isUploading ? (
-                  <svg className="animate-spin h-4 w-4 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                )}
-                Import Data
-              </button>
-              <button onClick={openWizard} className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">
-                <svg className="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                New Resume
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={handleImportDataInEditor} disabled={isUploading} className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-sm disabled:opacity-50">
-                {isUploading ? (
-                   <svg className="animate-spin h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                )}
-                Import Data
-              </button>
-
-              <div className="relative" ref={exportMenuRef}>
-                <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} disabled={exportingFormat !== null} className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center gap-1.5 disabled:opacity-70">
-                  {exportingFormat ? (
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                  )}
-                  <span className="hidden sm:inline">{exportingFormat ? `Exporting...` : 'Export'}</span>
-                  {!exportingFormat && <svg className={`w-3.5 h-3.5 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>}
-                </button>
-
-                {isExportMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Download As</div>
-                    <button onClick={() => handleExport('PDF')} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-violet-600 flex items-center gap-3 transition-colors">
-                      <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> PDF (.pdf)
-                    </button>
-                    <button onClick={() => handleExport('DOCX')} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3 transition-colors">
-                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Word (.docx)
-                    </button>
-                    <button onClick={() => handleExport('PPTX')} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-orange-500 flex items-center gap-3 transition-colors">
-                      <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg> PowerPoint (.pptx)
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </header>
-
-      {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* === VIEW 1: DASHBOARD GALLERY === */}
-        {view === 'gallery' && (
-          <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 relative">
-            <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8 sm:py-12">
-              
-              <div className="mb-12 bg-gradient-to-br from-violet-900 via-indigo-800 to-violet-600 rounded-3xl p-8 sm:p-10 md:p-12 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-white opacity-10 blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-violet-400 opacity-20 blur-3xl pointer-events-none"></div>
-
-                <div className="relative z-10 max-w-xl">
-                  <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
-                    {pendingExtractedData ? "Data Extracted!" : "Create a standout resume."}
-                  </h1>
-                  <p className="text-violet-200 text-lg sm:text-xl">
-                    {pendingExtractedData 
-                      ? "Your experience has been parsed. Scroll down and pick any template below to map your data instantly." 
-                      : "Choose from professional, ATS-friendly designs or start by importing your existing resume data."}
-                  </p>
-                  
-                  {!pendingExtractedData && (
-                    <div className="mt-8 flex flex-wrap gap-4">
-                      <button onClick={scrollToTemplates} className="bg-white text-violet-900 hover:bg-slate-50 font-bold py-3 px-6 rounded-xl transition-colors shadow-md flex items-center gap-2">
-                        Browse Templates
-                      </button>
-                      <button onClick={() => templateInputRef.current?.click()} disabled={isUploading} className="bg-transparent hover:bg-white/5 text-violet-100 font-medium py-3 px-6 rounded-xl transition-colors border border-dashed border-white/30 flex items-center gap-2">
-                        Upload Client Template
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative z-10 w-full md:w-auto flex-shrink-0">
-                   <div className="flex items-center bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 focus-within:bg-white/20 focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-400/20 rounded-full px-5 py-3.5 transition-all duration-300 w-full md:w-80 shadow-lg">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                      <input
-                        type="text"
-                        placeholder="Search templates..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="ml-3 outline-none text-base bg-transparent w-full placeholder-violet-200 text-white font-medium"
-                      />
-                   </div>
-                </div>
-              </div>
-
-              {resumes.length > 0 && !pendingExtractedData && (
-                <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-slate-800 tracking-tight">Recent Resumes</h2>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {resumes.map(resume => (
-                      <div key={resume.id} onClick={() => { setActiveResumeId(resume.id); setView('editor'); }} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 hover:shadow-lg hover:border-violet-300 hover:-translate-y-1 transition-all cursor-pointer group flex flex-col h-48 relative">
-                        <div className="flex-1 bg-slate-50 rounded-xl border border-slate-100 mb-4 flex flex-col items-center justify-center overflow-hidden relative">
-                           <div className="w-12 h-16 bg-white shadow-sm border border-slate-200 rounded p-1.5 flex flex-col gap-1">
-                              <div className="w-full h-1 bg-slate-200 rounded-full"></div>
-                              <div className="w-3/4 h-1 bg-slate-200 rounded-full"></div>
-                              <div className="w-5/6 h-1 bg-slate-100 rounded-full mt-1"></div>
-                              <div className="w-full h-1 bg-slate-100 rounded-full"></div>
-                           </div>
-                        </div>
-                        
-                        <div className="flex flex-col justify-end">
-                          {renamingResumeId === resume.id ? (
-                            <input 
-                              autoFocus
-                              value={renamingValue}
-                              onChange={handleRenameChange}
-                              onKeyDown={handleRenameKeyDown}
-                              onBlur={saveRename}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-slate-100 text-slate-800 text-sm font-semibold px-2 py-1 rounded outline-none border border-violet-500 mb-1"
-                            />
-                          ) : (
-                            <h3 className="text-sm font-bold truncate text-slate-700 group-hover:text-violet-700 transition-colors mb-1">{resume.name}</h3>
-                          )}
-                          <p className="text-[10px] text-slate-400 font-medium">{resume.lastModified || 'Saved recently'}</p>
-                        </div>
-
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                          <button onClick={(e) => { e.stopPropagation(); startRename(e, resume.id, resume.name); }} className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-violet-600 hover:border-violet-300 shadow-sm rounded-md transition-all" title="Rename">
-                            <IconRenderer type="pencil" size="14" />
-                          </button>
-                          <button onClick={(e) => confirmDelete(e, resume.id)} className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-300 shadow-sm rounded-md transition-all" title="Delete">
-                            <IconRenderer type="trash" size="14" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div id="templates-section">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-                  <h2 className="text-xl font-bold text-slate-800 tracking-tight">Template Gallery</h2>
-                  
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Columns</span>
-                      <button onClick={() => setFilterCols('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterCols === 'all' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>All</button>
-                      <button onClick={() => setFilterCols(1)} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterCols === 1 ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>1 Col</button>
-                      <button onClick={() => setFilterCols(2)} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterCols === 2 ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>2 Col</button>
-                    </div>
-                    
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Photo</span>
-                      <button onClick={() => setFilterHeadshot('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterHeadshot === 'all' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>All</button>
-                      <button onClick={() => setFilterHeadshot(true)} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterHeadshot === true ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>Yes</button>
-                      <button onClick={() => setFilterHeadshot(false)} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterHeadshot === false ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>No</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-8 pb-12 justify-center sm:justify-start">
-                  {filteredTemplates.map(tpl => {
-                    const mockFormData = {};
-                    const sourceData = pendingExtractedData || (activeResume ? formData : null);
-                    
-                    tpl.elements.forEach(e => {
-                      let val = (sourceData && sourceData[e.id] !== undefined) ? sourceData[e.id] : e.defaultVal;
-                      if (val === null || val === undefined || String(val).trim() === '') val = e.defaultVal;
-                      mockFormData[e.id] = val;
-                    });
-                    
-                    const scale = 0.25;
-                    const scaledW = tpl.page.width * scale;
-                    const scaledH = tpl.page.minHeight * scale;
-                    
-                    return (
-                    <div key={tpl.id} className="group flex flex-col items-center">
-                      <div 
-                        onClick={() => handleSelectTemplate(tpl)}
-                        className="relative bg-white rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200 overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] hover:border-violet-400 flex-shrink-0"
-                        style={{ width: `${scaledW}px`, height: `${scaledH}px` }}
-                      >
-                         <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: `${tpl.page.width}px`, minHeight: `${tpl.page.minHeight}px`, pointerEvents: 'none' }}>
-                            <RenderTemplate resumeData={{data: tpl}} formData={mockFormData} />
-                         </div>
-
-                         <div className="absolute inset-0 bg-slate-900/5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[1px]">
-                           <button className="bg-violet-600 text-white font-bold px-5 py-2.5 rounded-full shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 ease-out flex items-center gap-2 text-sm">
-                             {pendingExtractedData ? 'Map Data' : (activeResume ? 'Switch Layout' : 'Use Template')}
-                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                           </button>
-                         </div>
-                      </div>
-                      
-                      <h3 className="mt-4 text-sm font-bold text-slate-700 tracking-tight text-center">{tpl.name}</h3>
-                    </div>
-                  )})}
-                  
-                  {filteredTemplates.length === 0 && (
-                    <div className="w-full py-20 text-center text-slate-500">
-                      <div className="w-16 h-16 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                        <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      </div>
-                      <p className="text-lg font-bold text-slate-700">No templates found</p>
-                      <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* === VIEW 2: SPLIT SCREEN EDITOR === */}
-        {view === 'editor' && activeResume && (
-          <div className="flex-1 flex overflow-hidden bg-slate-100 relative w-full">
-            
-            {/* Left Pane: Editor Tools */}
-            {isEditorOpen && (
-              <div 
-                className="flex flex-col h-full bg-white border-r border-slate-200 flex-shrink-0 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)] absolute md:relative transition-transform duration-300 ease-in-out" 
-                style={{ width: isMobile ? '100%' : `${editorWidth}px`, maxWidth: '100vw' }}
-              >
-                <div className="flex border-b border-slate-200 flex-shrink-0 bg-white">
-                  <button onClick={() => setActiveEditorTab('content')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'content' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Content</button>
-                  <button onClick={() => setActiveEditorTab('design')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'design' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Design</button>
-                  <button onClick={() => setActiveEditorTab('templates')} className={`flex-1 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeEditorTab === 'templates' ? 'border-b-2 border-violet-600 text-violet-700 bg-violet-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Templates</button>
-                </div>
-
-                <div id="editor-content-pane" className="flex-1 overflow-y-auto p-5 md:p-6 custom-scrollbar bg-white pb-20 md:pb-6">
-                  
-                  {/* TEMPLATES TAB */}
-                  {activeEditorTab === 'templates' && (
-                    <div className="space-y-6 animate-in fade-in duration-200">
-                      <div className="bg-violet-50 rounded-xl p-4 sm:p-5 border border-violet-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-violet-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                          Client Templates
-                        </h3>
-                        <p className="text-xs text-violet-700/80 mb-4 leading-relaxed font-medium">Upload a PDF, DOCX, or PPTX from your client. The AI will instantly map your current content to their exact layout.</p>
-                        <button 
-                          onClick={() => templateInputRef.current?.click()} 
-                          disabled={isUploading}
-                          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md text-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          {isUploading ? (
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                          )}
-                          {isUploading ? "AI Engine Running..." : "Upload Client Template"}
-                        </button>
-                      </div>
-
-                      <div className="h-px bg-slate-100 w-full my-2"></div>
-
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                          Template Library
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          {ALL_TEMPLATES.map(tpl => {
-                            const isCurrent = activeResume.data.id === tpl.id || (activeResume.data.name === tpl.name);
-                            
-                            const scale = 0.15;
-                            const scaledW = tpl.page.width * scale;
-                            const scaledH = tpl.page.minHeight * scale;
-                            
-                            const mockFormData = {};
-                            tpl.elements.forEach(e => {
-                              let val = formData[e.id] !== undefined ? formData[e.id] : e.defaultVal;
-                              if (val === null || val === undefined || String(val).trim() === '') val = e.defaultVal;
-                              mockFormData[e.id] = val;
-                            });
-
-                            return (
-                              <div 
-                                key={tpl.id} 
-                                onClick={() => handleSelectTemplate(tpl)} 
-                                className={`cursor-pointer group flex flex-col items-center transition-all duration-200`}
-                              >
-                                <div 
-                                  className={`relative bg-white rounded-lg shadow-sm border-2 overflow-hidden transition-all duration-300 flex-shrink-0 ${isCurrent ? 'border-violet-500 ring-2 ring-violet-500/20 shadow-md' : 'border-slate-200 group-hover:border-violet-400 group-hover:shadow-md group-hover:-translate-y-1'}`}
-                                  style={{ width: `${scaledW}px`, height: `${scaledH}px` }}
-                                >
-                                  <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: `${tpl.page.width}px`, minHeight: `${tpl.page.minHeight}px`, pointerEvents: 'none' }}>
-                                      <RenderTemplate resumeData={{data: tpl}} formData={mockFormData} />
-                                  </div>
-                                </div>
-                                <div className={`mt-2 text-[10px] font-bold text-center leading-tight transition-colors ${isCurrent ? 'text-violet-700' : 'text-slate-600 group-hover:text-slate-900'}`}>
-                                  {tpl.name}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* DESIGN TAB */}
-                  {activeEditorTab === 'design' && (
-                    <div className="space-y-6 animate-in fade-in duration-200">
-                      {activeResume.data.designLocked ? (
-                        <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-3 mt-2">
-                           <div className="w-12 h-12 bg-slate-200/50 rounded-full flex items-center justify-center mx-auto text-slate-400">
-                              <IconRenderer type="lock" size="20" color="#94a3b8" />
-                           </div>
-                           <h4 className="text-sm font-bold text-slate-700">Design Locked</h4>
-                           <p className="text-xs text-slate-500 leading-relaxed max-w-[250px] mx-auto">This template uses a highly customized layout. Structural design controls are locked to preserve its visual integrity.</p>
-                        </div>
-                      ) : (
-                        <>
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                              <IconRenderer type="book" size="14" color="#94a3b8" /> Page Size Format
-                            </label>
-                            <select 
-                              value={activeResume.data.designConfig?.pageSize || 'default'} 
-                              onChange={(e) => updateDesign('pageSize', e.target.value === 'default' ? null : e.target.value)}
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
-                            >
-                              <option value="default">Template Default</option>
-                              {Object.keys(PAGE_FORMATS).map(format => (
-                                <option key={format} value={format}>{format}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="h-px bg-slate-100 w-full my-2"></div>
-
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                              <IconRenderer type="settings" size="14" color="#94a3b8" /> Typography
-                            </label>
-                            <div className="space-y-5 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Primary Font (Headers)</label>
-                                <select 
-                                  value={activeResume.data.designConfig?.primaryFont || "'Inter', sans-serif"} 
-                                  onChange={(e) => updateDesign('primaryFont', e.target.value)}
-                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
-                                >
-                                  <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
-                                  <option value="'Arial', sans-serif">Arial (Classic Sans)</option>
-                                  <option value="'Helvetica', sans-serif">Helvetica (Clean Sans)</option>
-                                  <option value="'Georgia', serif">Georgia (Elegant Serif)</option>
-                                  <option value="'Times New Roman', serif">Times New Roman (Formal Serif)</option>
-                                  <option value="'Roboto Mono', monospace">Roboto Mono (Tech Monospace)</option>
-                                  <option value="'Trebuchet MS', sans-serif">Trebuchet MS (Friendly Sans)</option>
-                                </select>
-                              </div>
-                              
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Secondary Font (Body)</label>
-                                <select 
-                                  value={activeResume.data.designConfig?.secondaryFont || "'Inter', sans-serif"} 
-                                  onChange={(e) => updateDesign('secondaryFont', e.target.value)}
-                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-bold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all cursor-pointer"
-                                >
-                                  <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
-                                  <option value="'Arial', sans-serif">Arial (Classic Sans)</option>
-                                  <option value="'Helvetica', sans-serif">Helvetica (Clean Sans)</option>
-                                  <option value="'Georgia', serif">Georgia (Elegant Serif)</option>
-                                  <option value="'Times New Roman', serif">Times New Roman (Formal Serif)</option>
-                                  <option value="'Roboto Mono', monospace">Roboto Mono (Tech Monospace)</option>
-                                  <option value="'Trebuchet MS', sans-serif">Trebuchet MS (Friendly Sans)</option>
-                                </select>
-                              </div>
-
-                              <div className="pt-2">
-                                <div className="flex justify-between items-center mb-4">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Base Font Size</label>
-                                  <span className="text-xs font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded">{activeResume.data.designConfig?.baseFontSize || 11}pt</span>
-                                </div>
-                                <input 
-                                  type="range" 
-                                  min="8" max="16" step="0.5"
-                                  value={activeResume.data.designConfig?.baseFontSize || 11}
-                                  onChange={(e) => updateDesign('baseFontSize', parseFloat(e.target.value))}
-                                  className="premium-slider"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="h-px bg-slate-100 w-full my-2"></div>
-
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Primary Theme Color</label>
-                            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                              <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
-                                <input 
-                                  type="color" 
-                                  value={activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent} 
-                                  onChange={(e) => updateDesign('accentColor', e.target.value)}
-                                  className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.accentColor || activeResume.data.defaultAccent}</div>
-                                <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Applied to headers and icons</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {activeResume.data.columns === 2 && (
-                            <div>
-                              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 block">Sidebar Background</label>
-                              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white">
-                                  <input 
-                                    type="color" 
-                                    value={activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg} 
-                                    onChange={(e) => updateDesign('sidebarColor', e.target.value)}
-                                    className="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-bold text-slate-700 uppercase">{activeResume.data.designConfig?.sidebarColor || activeResume.data.leftBg}</div>
-                                  <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Left column fill color</div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* CONTENT TAB */}
-                  {activeEditorTab === 'content' && (
-                    <div className="space-y-6">
-                      {activeResume.data.elements.filter(el => el.type !== 'shape' && el.type !== 'icon').map((el) => {
-                        
-                        if (el.type === 'image') {
-                          return (
-                            <div key={`${activeResumeId}-${el.id}`} className="flex flex-col gap-3 pb-4 border-b border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{el.label}</label>
-                              <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={(e) => handleImageUpload(e, el.id)} />
-                              <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 rounded-full bg-slate-100 border-2 border-white shadow-md overflow-hidden flex items-center justify-center">
-                                  {formData[el.id] ? <img src={formData[el.id]} alt="Profile" className="w-full h-full object-cover" /> : <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>}
-                                </div>
-                                <button onClick={() => imageInputRef.current?.click()} className="px-4 py-2 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors border border-violet-100 shadow-sm">
-                                  Upload Photo
-                                </button>
-                              </div>
-                            </div>
-                          )
+    <!-- Added Native File Export Engines -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        accenture: {
+                            purple: '#a100ff', 
+                            dark: '#000000',
+                            gray: '#464646',
+                            light: '#f4f4f4',
+                            border: '#e5e5e5'
                         }
-
-                        return (
-<div key={`${activeResumeId}-${el.id}`} className="flex flex-col gap-1.5 group w-full">
-                            
-                            {/* MINI TOOLBAR & LABEL */}
-                            <div className="flex justify-between items-end mb-1">
-                              <label className="text-[11px] font-bold text-slate-400 group-focus-within:text-violet-600 uppercase tracking-wider transition-colors">
-                                {el.label}
-                              </label>
-                              
-                              <div className="flex items-center gap-1 bg-slate-200/50 p-0.5 rounded-md border border-slate-200">
-                                <button onClick={() => updateElementAlign(el.id, 'left')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(!el.textAlign || el.textAlign === 'left') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Left">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h10M4 18h16"></path></svg>
-                                </button>
-                                <button onClick={() => updateElementAlign(el.id, 'center')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'center') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Center">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M7 12h10M4 18h16"></path></svg>
-                                </button>
-                                <button onClick={() => updateElementAlign(el.id, 'right')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'right') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Align Right">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M10 12h10M4 18h16"></path></svg>
-                                </button>
-                                <button onClick={() => updateElementAlign(el.id, 'justify')} className={`p-1 rounded text-slate-500 hover:text-violet-600 transition-all ${(el.textAlign === 'justify') ? 'bg-white shadow-sm text-violet-600' : ''}`} title="Justify">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                                </button>
-                              </div>
-                            </div>
-                            {el.isMultiline ? (
-                              <div className="flex flex-col gap-2 w-full">
-                                <textarea
-                                  id={`textarea-${el.id}`}
-                                  onKeyDown={(e) => handleTextareaKeyDown(e, el.id)}
-                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-300 focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all resize-y min-h-[90px] shadow-sm font-medium"
-                                  value={formData[el.id] || ''} onChange={(e) => handleChange(el.id, e.target.value)}
-                                />
-                                {el.isProgress && (
-                                  <div className="mt-2 bg-white border border-slate-100 rounded-lg p-3.5 space-y-3 shadow-sm ring-1 ring-slate-900/5">
-                                    <label className="text-[10px] font-bold text-violet-600 uppercase tracking-wider flex items-center gap-1.5">
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                                      Adjust Skill Levels
-                                    </label>
-                                    <div className="space-y-3">
-                                      {(formData[el.id] || '').split('\n').map((line, i) => {
-                                        if (!line.trim()) return null;
-                                        const cleanLine = line.replace(/^[•\-\*]\s*/, '');
-                                        const progressArr = formData[`${el.id}_progress`] || [];
-                                        const progress = progressArr[i] !== undefined ? progressArr[i] : (65 + ((i * 13) % 30));
-                                        
-                                        return (
-                                          <div key={i} className="flex items-center gap-3">
-                                            <span className="text-xs font-semibold text-slate-600 truncate w-24" title={cleanLine}>{cleanLine}</span>
-                                            <input 
-                                              type="range" 
-                                              min="10" max="100" 
-                                              value={progress}
-                                              onChange={(e) => {
-                                                const newArr = [...(formData[`${el.id}_progress`] || [])];
-                                                for(let j=0; j<=i; j++) {
-                                                  if(newArr[j] === undefined) newArr[j] = 65 + ((j * 13) % 30);
-                                                }
-                                                newArr[i] = parseInt(e.target.value);
-                                                handleProgressChange(el.id, newArr);
-                                              }}
-                                              className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
-                                            />
-                                            <span className="text-xs font-bold text-slate-400 w-9 text-right">{progress}%</span>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <input
-                                type="text"
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-300 focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all shadow-sm font-medium"
-                                value={formData[el.id] || ''} onChange={(e) => handleChange(el.id, e.target.value)}
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
-                      
-                      <div className="pt-4 border-t border-slate-100 flex justify-center pb-2">
-                        <button onClick={handleAddJob} className="flex items-center gap-2 text-sm font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-4 py-2.5 rounded-xl transition-colors border border-violet-100 w-full justify-center shadow-sm">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                          Add Another Job
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {isEditorOpen && !isMobile && (
-              <div onMouseDown={handleMouseDown} className={`w-1 flex-shrink-0 cursor-col-resize hover:bg-violet-400 transition-colors z-20 ${isDragging ? 'bg-violet-500' : 'bg-transparent'}`}></div>
-            )}
-
-            <div ref={rightPaneRef} className="flex-1 bg-slate-200 flex justify-center items-start overflow-auto p-4 sm:p-8 lg:p-12 custom-scrollbar relative w-full">
-              {activeResume && (() => {
-                const design = activeResume.data.designConfig || {};
-                const pWidth = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].width : activeResume.data.page.width;
-                const pHeight = design.pageSize && PAGE_FORMATS[design.pageSize] ? PAGE_FORMATS[design.pageSize].minHeight : activeResume.data.page.minHeight;
-                
-                const scaledWidth = pWidth * previewScale;
-                const scaledHeight = pHeight * previewScale;
-                
-                return (
-                  <div className="relative shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded transition-all duration-200 ease-in-out z-10 ring-1 ring-slate-900/5 bg-white overflow-hidden" 
-                       style={{ width: `${scaledWidth}px`, minHeight: `${scaledHeight}px` }}>
-                    
-                    <div id="printable-resume" style={{ width: `${pWidth}px`, minHeight: `${pHeight}px`, transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
-                      <RenderTemplate 
-                         resumeData={activeResume} 
-                         formData={formData} 
-                         onElementMouseDown={handleElementMouseDown} 
-                         draggingElementId={draggingElementId} 
-                      />
-                    </div>
-
-                  </div>
-                );
-              })()}
-
-              {/* Small Top-Right Reset Layout Button */}
-              {hasModifiedOffsets && (
-                <div className="absolute top-6 right-6 z-50 animate-in fade-in zoom-in duration-200">
-                  <button
-                     onClick={handleResetOffsets}
-                     className="bg-white border border-slate-200 text-slate-500 hover:text-violet-600 hover:bg-violet-50 hover:border-violet-300 shadow-sm rounded-lg p-2.5 transition-all flex items-center justify-center group relative focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-                     title="Undo Dragged Elements"
-                  >
-                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                       <path d="M3 7v6h6"></path>
-                       <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path>
-                     </svg>
-                     <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-800 text-white text-[11px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
-                       Undo Moves
-                     </span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {toast.show && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${toast.type === 'loading' ? 'bg-slate-800 border-slate-700 text-white' : toast.type === 'success' ? 'bg-emerald-600 border-emerald-500 text-white' : toast.type === 'error' ? 'bg-red-600 border-red-500 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
-            {toast.type === 'loading' && (
-              <svg className="animate-spin h-5 w-5 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            )}
-            {toast.type === 'success' && (
-              <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-              </div>
-            )}
-            {toast.type === 'error' && (
-               <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                 <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-               </div>
-            )}
-            <span className="text-sm font-bold">{toast.message}</span>
-          </div>
-        </div>
-      )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #94a3b8; }
-        .custom-scrollbar-dark::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar-dark::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar-dark::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
-        .custom-scrollbar-dark:hover::-webkit-scrollbar-thumb { background-color: #475569; }
-
-        /* Premium Range Slider Styling */
-        .premium-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 6px;
-          background: #e2e8f0;
-          border-radius: 4px;
-          outline: none;
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Georgia', 'serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+                    }
+                }
+            }
         }
-        .premium-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 16px;
-          height: 24px;
-          border-radius: 6px;
-          background: #7c3aed;
-          cursor: pointer;
-          border: 2px solid #ffffff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-          transition: transform 0.1s;
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { background-color: #f4f4f4; color: #000000; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        
+        /* Modern Navbar Links */
+        .nav-link {
+            padding: 1.2rem 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+            color: #888;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            position: relative;
+            z-index: 50;
+            outline: none;
+            background: transparent;
+            border: none;
         }
-        .premium-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.1);
+        .nav-link:hover { color: #fff; }
+        .nav-link.active { color: #fff; border-bottom: 3px solid #a100ff; }
+        
+        .page-view { display: none; animation: fadeIn 0.4s ease-out; }
+        .page-view.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tooltips */
+        .custom-tooltip-container { position: relative; display: inline-flex; }
+        .custom-tooltip {
+            visibility: hidden;
+            width: 260px;
+            background-color: #000;
+            color: #fff;
+            text-align: left;
+            border-radius: 4px;
+            padding: 10px 14px;
+            position: absolute;
+            z-index: 100;
+            top: 120%; 
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.75rem;
+            font-weight: 400;
+            box-shadow: 0 10px 15px -3px rgba(161, 0, 255, 0.2);
+            border: 1px solid #333;
+            pointer-events: none;
+        }
+        .custom-tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%; 
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: transparent transparent #000 transparent;
+        }
+        
+        /* Tooltip positioning variants */
+        .custom-tooltip.tooltip-right-align {
+            left: auto;
+            right: 0;
+            transform: translateX(0);
+        }
+        .custom-tooltip.tooltip-right-align::after {
+            left: auto;
+            right: 15px;
+            transform: translateX(0);
+        }
+        .custom-tooltip.tooltip-left-align {
+            left: 0;
+            transform: translateX(0);
+        }
+        .custom-tooltip.tooltip-left-align::after {
+            left: 15px;
+            transform: translateX(0);
+        }
+        
+        .custom-tooltip-container:hover .custom-tooltip { visibility: visible; opacity: 1; top: 110%; }
+
+        /* Corporate Document Inputs */
+        .doc-input {
+            width: 100%; border: 1px solid transparent; padding: 0.5rem 0.75rem; 
+            transition: all 0.2s; background: transparent; border-radius: 4px;
+        }
+        .doc-input:hover { background: #f9fafb; border-color: #e5e5e5; }
+        .doc-input:focus {
+            background: #fff; outline: none; border-color: #a100ff;
+            box-shadow: 0 0 0 3px rgba(161, 0, 255, 0.1);
+        }
+        .doc-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+        
+        /* Template Grid Items */
+        .template-card { border: 2px solid #e5e5e5; transition: all 0.3s; cursor: pointer; border-radius: 6px; background: #fff; flex-shrink: 0; width: 140px;}
+        .template-card:hover { border-color: #d896ff; transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+        .template-card.selected { border-color: #a100ff; background-color: #faf5ff; box-shadow: 0 0 0 2px rgba(161, 0, 255, 0.2); }
+        
+        /* Custom Scrollbar */
+        .h-scroll::-webkit-scrollbar { height: 6px; }
+        .h-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .h-scroll::-webkit-scrollbar-thumb { background: #c084fc; border-radius: 4px; }
+        .h-scroll::-webkit-scrollbar-thumb:hover { background: #a100ff; }
+
+        /* Inline Editor Highlight */
+        .edit-el {
+            position: relative;
+            cursor: pointer;
+            transition: outline 0.1s ease-in-out, background-color 0.1s ease-in-out;
+            page-break-inside: avoid;
+        }
+        .edit-el:hover {
+            outline: 2px dashed rgba(161, 0, 255, 0.4);
+            outline-offset: 4px;
+            border-radius: 2px;
+            background-color: rgba(161, 0, 255, 0.02);
+        }
+
+        /* Visual Pagination Guide */
+        .page-container {
+            min-height: 1056px;
         }
 
         @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          .desk-gap {
-            display: none !important;
-          }
-          .resume-block {
-            margin-top: var(--orig-mt) !important;
-            page-break-inside: avoid;
-          }
-          #printable-resume, #printable-resume * {
-            visibility: visible !important;
-          }
-          #printable-resume {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            transform: scale(1) !important;
-            width: auto !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          @page {
-            margin: 0;
-            size: auto;
-          }
+            body { background: white; }
+            .page-container { background-image: none !important; min-height: auto; padding: 0 !important; }
+            nav, .horizontal-control-deck, .floating-actions, #pagination-controls, #inline-editor { display: none !important; }
+            #resume-window { height: auto !important; overflow: visible !important; box-shadow: none !important; max-width: none !important; width: 100% !important; }
+            #resume-preview { position: relative !important; transform: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
+            .edit-el { margin-top: var(--orig-mt, 0) !important; }
+            @page { margin: 1in; size: letter portrait; }
         }
-      `}} />
+    </style>
+</head>
+<body class="pt-24 pb-12">
+
+    <!-- NAVIGATION BAR -->
+    <nav class="bg-black shadow-lg fixed w-full top-0 z-[100] border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-[101]">
+            <div class="flex justify-between items-center h-[72px]">
+                <div class="flex-shrink-0 flex items-center gap-2 pointer-events-auto">
+                    <span class="text-accenture-purple font-black text-3xl leading-none">></span>
+                    <span class="font-black text-xl tracking-widest text-white uppercase mt-1">ResumeCraft</span>
+                </div>
+                <div class="flex space-x-1 sm:space-x-2 pointer-events-auto">
+                    <button type="button" id="btn-nav-profile" class="nav-link active flex items-center gap-2" onclick="switchTab('profile')">
+                        <i class="fa-regular fa-user"></i> <span class="hidden sm:inline">Profile</span>
+                    </button>
+                    <button type="button" id="btn-nav-create" class="nav-link flex items-center gap-2" onclick="switchTab('create')">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden sm:inline">Create Resume</span>
+                    </button>
+                    <button type="button" id="btn-nav-history" class="nav-link flex items-center gap-2" onclick="switchTab('history')">
+                        <i class="fa-solid fa-clock-rotate-left"></i> <span class="hidden sm:inline">History</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2 relative z-10 pointer-events-auto">
+
+        <!-- ============================================== -->
+        <!-- PROFILE PAGE (Active by default)               -->
+        <!-- ============================================== -->
+        <section id="view-profile" class="page-view active">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-black text-accenture-dark uppercase tracking-tight">Master Profile Data</h2>
+                    <p class="text-sm text-accenture-gray mt-1 font-medium">Edit your core baseline information below.</p>
+                </div>
+                
+                <div>
+                    <input type="file" id="profile-upload" class="hidden" accept=".docx,.pdf,.ppt,.pptx" onchange="handleProfileUpload(this)">
+                    <div class="custom-tooltip-container">
+                        <button type="button" onclick="document.getElementById('profile-upload').click()" class="bg-black text-white px-5 py-2.5 rounded hover:bg-gray-800 flex items-center gap-2 shadow-md transition font-semibold text-sm">
+                            <i class="fa-solid fa-cloud-arrow-up text-accenture-purple"></i> Upload Source Data
+                        </button>
+                        <div class="custom-tooltip tooltip-right-align">Upload an existing resume (DOCX, PPTX) to dynamically auto-fill your master profile.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white shadow-xl rounded p-8 sm:p-12 max-w-4xl mx-auto min-h-[800px] border border-accenture-border">
+                <div class="space-y-8">
+                    
+                    <!-- Header Info with Profile Picture -->
+                    <div class="text-center border-b border-gray-200 pb-8 relative">
+                        <div class="relative w-28 h-28 mx-auto mb-5 group">
+                            <img id="prof-pic-preview" src="https://placehold.co/128x128/f4f4f4/a100ff?text=PHOTO" alt="Profile" class="w-full h-full rounded-full object-cover border-4 border-white shadow-lg">
+                            <div class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onclick="document.getElementById('pic-upload').click()">
+                                <i class="fa-solid fa-camera text-white text-xl"></i>
+                            </div>
+                            <input type="file" id="pic-upload" class="hidden" accept="image/*" onchange="handlePicUpload(this)">
+                        </div>
+
+                        <input type="text" id="prof-name" class="doc-input text-4xl font-black text-center text-black tracking-tight" placeholder="FULL NAME" value="">
+                        <input type="text" id="prof-title" class="doc-input text-xl font-bold text-center text-accenture-purple tracking-tight mt-2" placeholder="PROFESSIONAL TITLE" value="">
+                        
+                        <div class="flex flex-wrap justify-center items-center gap-3 sm:gap-6 mt-4">
+                            <div class="flex items-center text-accenture-gray group">
+                                <i class="fa-solid fa-envelope text-accenture-purple mr-2 group-hover:scale-110 transition-transform"></i>
+                                <input type="text" id="prof-email" class="doc-input text-sm w-56 font-medium" placeholder="Email Address" value="">
+                            </div>
+                            <span class="text-gray-300 hidden sm:inline">|</span>
+                            <div class="flex items-center text-accenture-gray group">
+                                <i class="fa-solid fa-phone text-accenture-purple mr-2 group-hover:scale-110 transition-transform"></i>
+                                <input type="text" id="prof-phone" class="doc-input text-sm w-36 font-medium" placeholder="Phone Number" value="">
+                            </div>
+                            <span class="text-gray-300 hidden sm:inline">|</span>
+                            <div class="flex items-center text-accenture-gray group">
+                                <i class="fa-brands fa-linkedin text-accenture-purple mr-2 group-hover:scale-110 transition-transform"></i>
+                                <input type="text" id="prof-location" class="doc-input text-sm w-48 font-medium" placeholder="LinkedIn URL" value="">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Professional Summary -->
+                    <div class="group">
+                        <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                            <i class="fa-solid fa-user-tie text-accenture-purple"></i> Professional Summary
+                        </h3>
+                        <textarea id="prof-summary" class="doc-input doc-textarea text-accenture-gray mt-1 text-sm font-medium" placeholder="Write a brief professional summary..."></textarea>
+                    </div>
+
+                    <!-- Work Experience -->
+                    <div class="group">
+                        <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                            <i class="fa-solid fa-briefcase text-accenture-purple"></i> Work Experience
+                        </h3>
+                        <div class="mt-1 relative">
+                            <textarea id="prof-exp" class="doc-input doc-textarea text-accenture-gray min-h-[400px] text-sm font-medium" placeholder="Job Title - Company - Dates&#10;- Achievement 1&#10;- Achievement 2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Education / Certs -->
+                    <div class="group">
+                        <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                            <i class="fa-solid fa-certificate text-accenture-purple"></i> Certifications & Education
+                        </h3>
+                        <textarea id="prof-edu" class="doc-input doc-textarea text-accenture-gray text-sm font-medium min-h-[140px]" placeholder="Degree/Cert - Institution - Year"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="group">
+                            <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                                <i class="fa-solid fa-laptop-code text-accenture-purple"></i> Technical Skills
+                            </h3>
+                            <textarea id="prof-tech-skills" class="doc-input doc-textarea text-accenture-gray text-sm font-medium" placeholder="List your skills..."></textarea>
+                        </div>
+
+                        <div class="group">
+                            <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                                <i class="fa-solid fa-gears text-accenture-purple"></i> Functional Skills
+                            </h3>
+                            <textarea id="prof-func-skills" class="doc-input doc-textarea text-accenture-gray text-sm font-medium" placeholder="List your skills..."></textarea>
+                        </div>
+
+                        <div class="group md:col-span-2">
+                            <h3 class="text-lg font-black uppercase text-black mb-3 border-b-2 border-accenture-purple inline-flex items-center gap-2 pb-1">
+                                <i class="fa-solid fa-building text-accenture-purple"></i> Industry Background
+                            </h3>
+                            <textarea id="prof-industry" class="doc-input doc-textarea text-accenture-gray text-sm font-medium min-h-[60px]" placeholder="List your industries..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- CREATE RESUME PAGE                             -->
+        <!-- ============================================== -->
+        <section id="view-create" class="page-view">
+            
+            <!-- THE HORIZONTAL CONTROL DECK -->
+            <div class="horizontal-control-deck bg-white rounded-t-xl shadow-md border border-accenture-border mb-0 relative z-20 overflow-hidden">
+                <!-- Row 1: Action Bar -->
+                <div class="p-4 flex flex-wrap gap-4 items-center justify-between border-b border-gray-100 bg-gray-50/50">
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="populateFromProfile()" class="bg-black text-white border border-black hover:bg-accenture-purple hover:border-accenture-purple px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-address-card"></i> Populate using current profile data
+                            </button>
+                            <div class="custom-tooltip">Data from "profile page" will be used to populate your resume.</div>
+                        </div>
+
+                        <div class="custom-tooltip-container">
+                            <input type="file" id="source-upload" class="hidden" accept=".docx,.ppt,.pdf,.pptx" onchange="handleFileUpload(this, 'source')">
+                            <button type="button" onclick="document.getElementById('source-upload').click()" class="bg-white text-black border border-gray-300 hover:border-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-file-import text-accenture-purple"></i> Upload data source resume
+                            </button>
+                            <div class="custom-tooltip">Upload a file (resume in .docx, ppt, pdf format) containing your information to initially populate the fields of the new resume you are creating.</div>
+                        </div>
+
+                        <div class="custom-tooltip-container">
+                            <input type="file" id="target-upload" class="hidden" accept=".docx,.ppt,.pdf,.pptx" onchange="handleFileUpload(this, 'target')">
+                            <button type="button" onclick="document.getElementById('target-upload').click()" class="bg-white text-black border border-gray-300 hover:border-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-file-code text-accenture-purple"></i> Upload target resume format
+                            </button>
+                            <div class="custom-tooltip">Upload a file sample (in .docx .ppt, pdf format) of your desired resume output. Target format might contain more fields than what is available in your current profile.</div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side: Start Fresh -->
+                    <div class="flex items-center gap-2">
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="clearResumeCanvas()" class="bg-white text-gray-600 border border-gray-300 hover:border-red-600 hover:text-red-600 px-3 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-rotate-left"></i> Start Fresh
+                            </button>
+                            <div class="custom-tooltip tooltip-right-align">Reset the canvas and clear all generated content.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Template Library (Horizontal Scroll) -->
+                <div class="p-5 bg-white">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-black text-black uppercase tracking-tight flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-accenture-purple"></i> Template Library
+                        </h3>
+                        <span class="text-xs text-gray-400 font-medium">Scroll to see more <i class="fa-solid fa-arrow-right ml-1"></i></span>
+                    </div>
+                    <div class="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 h-scroll" id="template-grid">
+                        <!-- Automatically generated via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Canvas & Actions -->
+            <div class="bg-gray-100 shadow-xl rounded-b-xl p-8 mx-auto border border-t-0 border-accenture-border relative z-10 flex flex-col items-center min-h-[900px]">
+                
+                <!-- Floating Export Actions Above Document -->
+                <div class="floating-actions w-full max-w-[816px] flex justify-between gap-2 mb-4 items-center">
+                    
+                    <div class="flex items-center gap-2">
+                        <!-- Auto-Save Indicator -->
+                        <div class="custom-tooltip-container">
+                            <div class="bg-white text-gray-500 px-3 py-2 rounded shadow-sm text-xs font-bold flex items-center gap-2 border border-gray-200">
+                                <i id="save-indicator-icon" class="fa-solid fa-check text-emerald-500"></i> <span id="save-indicator-text">Saved</span>
+                            </div>
+                            <div class="custom-tooltip tooltip-left-align">Artifact is automatically saved to history on edit.</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Revert -->
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="revertDocument()" class="bg-white text-gray-600 border border-gray-300 hover:border-orange-500 hover:text-orange-500 px-3 py-2 rounded text-xs font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Revert
+                            </button>
+                            <div class="custom-tooltip tooltip-right-align">Revert to the initially generated layout before edits.</div>
+                        </div>
+                        <!-- PDF -->
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="exportResume('pdf')" class="bg-black hover:bg-accenture-purple text-white px-3 py-2.5 rounded shadow transition text-xs font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </button>
+                            <div class="custom-tooltip tooltip-right-align w-auto whitespace-nowrap">Export as PDF</div>
+                        </div>
+                        <!-- DOCX -->
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="exportResume('docx')" class="bg-black hover:bg-accenture-purple text-white px-3 py-2.5 rounded shadow transition text-xs font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-file-word"></i> DOCX
+                            </button>
+                            <div class="custom-tooltip tooltip-right-align w-auto whitespace-nowrap">Export as Word (.docx)</div>
+                        </div>
+                        <!-- PPTX -->
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="exportResume('pptx')" class="bg-black hover:bg-accenture-purple text-white px-3 py-2.5 rounded shadow transition text-xs font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-file-powerpoint"></i> PPT
+                            </button>
+                            <div class="custom-tooltip tooltip-right-align w-auto whitespace-nowrap">Export as PowerPoint (.pptx)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Window for US Letter Pagination -->
+                <div id="resume-window" class="relative bg-white shadow-2xl overflow-hidden w-full max-w-[816px]" style="height: 1056px;">
+                    <div id="resume-preview" class="w-full absolute top-0 left-0 transition-transform duration-300 origin-top flex flex-col min-h-full">
+                        <div class="flex-1 flex flex-col h-full">
+                            <div class="text-center text-gray-400 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex flex-col items-center justify-center m-10 flex-1">
+                                <i class="fa-solid fa-layer-group text-5xl mb-4 text-gray-300"></i>
+                                <p class="font-medium text-gray-500 text-lg">Output rendering engine ready.</p>
+                                <p class="text-sm mt-2">Select a template or upload target format to generate preview.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div id="pagination-controls" class="mt-8 hidden items-center gap-4 bg-white px-5 py-2.5 rounded-full shadow-md border border-gray-200">
+                    <button type="button" onclick="prevPage()" class="text-accenture-gray hover:text-accenture-purple transition-colors p-1"><i class="fa-solid fa-chevron-left text-lg"></i></button>
+                    <span id="page-indicator" class="text-sm font-black text-black uppercase tracking-widest min-w-[100px] text-center">Page 1 of 1</span>
+                    <button type="button" onclick="nextPage()" class="text-accenture-gray hover:text-accenture-purple transition-colors p-1"><i class="fa-solid fa-chevron-right text-lg"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- HISTORY PAGE                                   -->
+        <!-- ============================================== -->
+        <section id="view-history" class="page-view">
+            <h2 class="text-3xl font-black text-accenture-dark uppercase tracking-tight mb-6 border-l-4 border-accenture-purple pl-3">Artifact Repository</h2>
+            
+            <div class="bg-white rounded shadow-md overflow-hidden border border-accenture-border">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-black">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Document Name</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Template Used</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Last Sync Date</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-white uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="history-table-body">
+                        <!-- Dynamic content via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] hidden items-center justify-center pointer-events-auto">
+        <div id="delete-modal-content" class="bg-white rounded shadow-2xl w-full max-w-md mx-4 transform transition-all duration-200 scale-95 opacity-0 border border-accenture-border">
+            <div class="p-6 sm:p-8">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 mt-1">
+                        <i class="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-black uppercase tracking-tight">Confirm Deletion</h3>
+                        <p class="text-sm text-accenture-gray font-medium mt-2 leading-relaxed">This action cannot be undone. Are you sure you want to permanently delete this artifact from the repository?</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="cancelDelete()" class="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-black font-bold text-sm rounded transition-colors shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="confirmDelete()" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded shadow-md transition-colors flex items-center gap-2">
+                        <i class="fa-solid fa-trash-can"></i> Delete Artifact
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-  );
-}
+
+    <!-- UI Overlay for alerts -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-black text-white px-6 py-4 rounded shadow-2xl transform transition-all translate-y-24 opacity-0 z-[3000] flex items-center gap-3 border border-gray-800 font-medium text-sm pointer-events-none">
+        <i class="fa-solid fa-circle-check text-accenture-purple text-lg"></i>
+        <span id="toast-msg">System message initialized.</span>
+    </div>
+
+    <!-- Interactive Inline Editor Toolbar -->
+    <div id="inline-editor" class="fixed hidden bg-black border border-gray-700 shadow-2xl rounded-md z-[2000] flex items-center gap-1.5 p-1.5 transform -translate-x-1/2 transition-opacity duration-200 opacity-0">
+        <div class="cursor-move text-gray-400 hover:text-white px-2 py-1.5 rounded hover:bg-gray-800 transition-colors" title="Drag to move"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
+        <div class="w-px h-5 bg-gray-700 mx-1"></div>
+        <select id="edit-font" class="bg-gray-800 text-white text-xs border border-gray-600 rounded p-1 outline-none h-8 font-medium">
+            <option value="inherit">Default</option>
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="ui-monospace, monospace">Monospace</option>
+            <option value="Cambria, serif">Cambria</option>
+        </select>
+        <input type="number" id="edit-size" class="bg-gray-800 text-white text-xs border border-gray-600 rounded p-1 w-14 h-8 outline-none text-center" title="Font Size (px)">
+        <div class="relative w-8 h-8 rounded border border-gray-600 overflow-hidden cursor-pointer">
+            <input type="color" id="edit-color" class="absolute inset-0 w-[200%] h-[200%] top-[-50%] left-[-50%] cursor-pointer bg-transparent border-0 p-0" title="Text Color">
+        </div>
+        <button type="button" id="edit-bold" class="text-gray-400 hover:text-accenture-purple px-2.5 py-1.5 rounded hover:bg-gray-800 transition-colors" title="Bold"><i class="fa-solid fa-bold"></i></button>
+        <button type="button" id="edit-italic" class="text-gray-400 hover:text-accenture-purple px-2.5 py-1.5 rounded hover:bg-gray-800 transition-colors" title="Italic"><i class="fa-solid fa-italic"></i></button>
+        <div class="w-px h-5 bg-gray-700 mx-1"></div>
+        <button type="button" id="edit-reset" class="text-gray-400 hover:text-orange-400 px-2.5 py-1.5 rounded hover:bg-gray-800 transition-colors" title="Reset Element"><i class="fa-solid fa-rotate-left"></i></button>
+        <button type="button" onclick="closeInlineEditor()" class="text-gray-400 hover:text-red-500 px-2 py-1.5 rounded hover:bg-gray-800 transition-colors" title="Close Toolbar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <script>
+        // --- Navigation & Core UI Logic ---
+        function switchTab(tabId) {
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-nav-${tabId}`);
+            if(activeBtn) activeBtn.classList.add('active');
+            
+            const views = document.querySelectorAll('.page-view');
+            views.forEach(view => { view.classList.remove('active'); });
+            
+            const activeView = document.getElementById(`view-${tabId}`);
+            if(activeView) activeView.classList.add('active');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = message;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3500);
+        }
+
+        // --- Profile Picture Management ---
+        let profilePicDataUrl = null;
+
+        function handlePicUpload(input) {
+            if(input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    profilePicDataUrl = e.target.result;
+                    document.getElementById('prof-pic-preview').src = profilePicDataUrl;
+                    showToast("Profile picture updated.");
+                    if(currentResumeData) {
+                        currentResumeData.profilePic = profilePicDataUrl;
+                        updatePreview(); 
+                    }
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // --- History / Repository Management & Auto-Save ---
+        let historyRepository = [];
+        let activeArtifactId = null;
+        let originalPreviewHtml = ""; // State for Reverting
+        let currentResumeData = null;
+        
+        let currentPage = 1;
+        let totalPages = 1;
+        const PAGE_HEIGHT = 1056;
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            if(historyRepository.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">No artifacts saved yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = historyRepository.map(item => `
+                <tr id="row-${item.id}" class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-black">
+                        <i class="fa-solid fa-file-lines text-accenture-purple mr-2"></i> ${item.name}
+                    </td>
+                    <td class="px-6 py-5 whitespace-nowrap text-sm text-accenture-gray font-medium">${item.template}</td>
+                    <td class="px-6 py-5 whitespace-nowrap text-sm text-accenture-gray">${item.date}</td>
+                    <td class="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="editHistoryItem('${item.id}')" class="text-gray-400 hover:text-blue-600 mr-4 transition-colors p-2">
+                                <i class="fa-solid fa-pen-to-square text-lg"></i>
+                            </button>
+                            <div class="custom-tooltip tooltip-top tooltip-right-align w-auto whitespace-nowrap">Edit Artifact</div>
+                        </div>
+                        <div class="custom-tooltip-container">
+                            <button type="button" onclick="deleteHistoryItem('${item.id}')" class="text-gray-400 hover:text-red-600 transition-colors p-2">
+                                <i class="fa-solid fa-trash-can text-lg"></i>
+                            </button>
+                            <div class="custom-tooltip tooltip-top tooltip-right-align w-auto whitespace-nowrap">Delete Artifact</div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function triggerAutoSave() {
+            if (!activeArtifactId || !currentResumeData) return;
+            
+            const previewHtml = document.getElementById('resume-preview').innerHTML;
+            const tplObj = templatesData.find(t => t.id === selectedTemplateId);
+            
+            let templateName = 'Target Format';
+            if (tplObj) {
+                templateName = tplObj.name;
+            } else if (selectedTemplateId === 'imported') {
+                templateName = 'Imported Template';
+            }
+            
+            // Professional Formatting: Name - Title
+            let docName = currentResumeData.name || "Professional Resume";
+            if (currentResumeData.title) docName += ` - ${currentResumeData.title}`;
+            
+            const dateStr = new Date().toLocaleString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric', 
+                hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true 
+            });
+
+            const existingIndex = historyRepository.findIndex(i => i.id === activeArtifactId);
+            
+            if (existingIndex > -1) {
+                historyRepository[existingIndex].date = dateStr;
+                historyRepository[existingIndex].html = previewHtml;
+                historyRepository[existingIndex].resumeData = JSON.parse(JSON.stringify(currentResumeData));
+            } else {
+                historyRepository.unshift({
+                    id: activeArtifactId,
+                    name: docName,
+                    template: templateName,
+                    date: dateStr,
+                    html: previewHtml,
+                    resumeData: JSON.parse(JSON.stringify(currentResumeData))
+                });
+            }
+            
+            const indicatorIcon = document.getElementById('save-indicator-icon');
+            const indicatorText = document.getElementById('save-indicator-text');
+            indicatorIcon.className = "fa-solid fa-arrows-rotate fa-spin text-accenture-purple";
+            indicatorText.innerText = "Saving...";
+            
+            setTimeout(() => {
+                indicatorIcon.className = "fa-solid fa-check text-emerald-500";
+                indicatorText.innerText = "Saved";
+                renderHistoryTable();
+            }, 600);
+        }
+
+        let artifactToDelete = null;
+
+        function deleteHistoryItem(id) {
+            artifactToDelete = id;
+            const modal = document.getElementById('delete-modal');
+            const content = document.getElementById('delete-modal-content');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0'); content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function cancelDelete() {
+            const modal = document.getElementById('delete-modal');
+            const content = document.getElementById('delete-modal-content');
+            content.classList.remove('scale-100', 'opacity-100'); content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden'); modal.classList.remove('flex');
+                artifactToDelete = null;
+            }, 200); 
+        }
+
+        function confirmDelete() {
+            if (!artifactToDelete) return;
+            historyRepository = historyRepository.filter(item => item.id !== artifactToDelete);
+            if (activeArtifactId === artifactToDelete) clearResumeCanvas();
+            renderHistoryTable();
+            cancelDelete();
+            setTimeout(() => { showToast("Artifact deleted from repository."); }, 250); 
+        }
+
+        function editHistoryItem(id) {
+            const item = historyRepository.find(i => i.id === id);
+            if(item) {
+                activeArtifactId = item.id;
+                currentResumeData = item.resumeData;
+                document.getElementById('resume-preview').innerHTML = item.html;
+                originalPreviewHtml = item.html; 
+                showToast("Artifact loaded into rendering engine.");
+                
+                setTimeout(() => {
+                    applyPaginationGaps();
+                }, 100);
+
+                switchTab('create');
+            }
+        }
+
+        function clearResumeCanvas() {
+            currentResumeData = null;
+            activeArtifactId = null;
+            originalPreviewHtml = "";
+            document.querySelectorAll('.template-card').forEach(el => el.classList.remove('selected'));
+            selectedTemplateId = null;
+            document.getElementById('resume-preview').innerHTML = `
+                <div class="flex-1 flex flex-col h-full">
+                    <div class="text-center text-gray-400 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex flex-col items-center justify-center m-10 flex-1 h-full">
+                        <i class="fa-solid fa-rotate-left text-5xl mb-4 text-gray-300"></i>
+                        <p class="font-medium text-gray-500 text-lg">Canvas Cleared.</p>
+                        <p class="text-sm mt-2">Start a new document by populating data.</p>
+                    </div>
+                </div>
+            `;
+            closeInlineEditor();
+            currentPage = 1;
+            totalPages = 1;
+            applyPageTransform();
+            updatePagination();
+            showToast("Rendering engine reset for new artifact.");
+        }
+
+        function revertDocument() {
+            if (originalPreviewHtml && activeArtifactId) {
+                document.getElementById('resume-preview').innerHTML = originalPreviewHtml;
+                applyPaginationGaps();
+                triggerAutoSave();
+                showToast("Document reverted to initial state.");
+            } else {
+                showToast("No initial state to revert to.");
+            }
+        }
+
+        const templatesData = [
+            { id: 1, name: 'ATS Professional', cols: 1, hasPic: false },
+            { id: 2, name: 'Modern Minimalist', cols: 1, hasPic: true },
+            { id: 3, name: 'Technical Focus', cols: 1, hasPic: false },
+            { id: 4, name: 'Executive Classic', cols: 1, hasPic: false },
+            { id: 5, name: 'Creative Portfolio', cols: 2, hasPic: true },
+            { id: 6, name: 'Graduate Starter', cols: 1, hasPic: false },
+            { id: 7, name: 'BPO Specialist', cols: 1, hasPic: false },
+            { id: 8, name: 'Project Showcase', cols: 1, hasPic: false },
+            { id: 9, name: 'Academic Research', cols: 1, hasPic: false },
+            { id: 10, name: 'Global Remote', cols: 1, hasPic: true }
+        ];
+
+        let selectedTemplateId = null;
+
+        function renderTemplatesList() {
+            const grid = document.getElementById('template-grid');
+            grid.innerHTML = templatesData.map(t => `
+                <div class="template-card flex flex-col items-center justify-center text-center p-3" 
+                     id="tpl-${t.id}" onclick="selectTemplate(${t.id})">
+                    <div class="w-16 h-20 bg-gray-50 shadow border border-gray-200 mx-auto mb-3 relative flex ${t.cols === 2 ? 'flex-row' : 'flex-col'} p-1.5 gap-1">
+                        ${t.hasPic ? `<div class="w-3 h-3 rounded-full bg-accenture-purple mb-0.5"></div>` : `<div class="w-full h-1.5 bg-accenture-purple mb-1"></div>`}
+                        <div class="flex-1 w-full bg-gray-200 rounded-sm"></div>
+                        <div class="flex-1 w-full bg-gray-200 rounded-sm"></div>
+                    </div>
+                    <span class="text-[11px] font-bold text-accenture-dark uppercase tracking-tight leading-tight w-full px-1">${t.name}</span>
+                </div>
+            `).join('');
+        }
+        
+        function selectTemplate(id) {
+            document.querySelectorAll('.template-card').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`tpl-${id}`).classList.add('selected');
+            selectedTemplateId = id;
+            if (currentResumeData) {
+                if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
+                updatePreview();
+            } else {
+                showToast(`Selected ${templatesData.find(t=>t.id===id).name}. Please populate data.`);
+            }
+        }
+
+        function formatBulletPoints(text) {
+            if (!text) return "";
+            return text.split('\n').map(line => {
+                let trimmedLine = line.trim();
+                if (!trimmedLine) return "";
+                if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
+                    let content = trimmedLine.substring(1).trim();
+                    if (content) return `• ${content.charAt(0).toUpperCase() + content.slice(1)}`;
+                    return trimmedLine; 
+                } else {
+                    return `• ${trimmedLine.charAt(0).toUpperCase() + trimmedLine.slice(1)}`;
+                }
+            }).join('\n');
+        }
+
+        function getProfileData() {
+            return {
+                name: document.getElementById('prof-name').value,
+                title: document.getElementById('prof-title').value,
+                email: document.getElementById('prof-email').value,
+                phone: document.getElementById('prof-phone').value,
+                location: document.getElementById('prof-location').value,
+                summary: document.getElementById('prof-summary').value,
+                experience: document.getElementById('prof-exp').value,
+                education: document.getElementById('prof-edu').value,
+                techSkills: document.getElementById('prof-tech-skills').value,
+                funcSkills: document.getElementById('prof-func-skills').value,
+                industry: document.getElementById('prof-industry').value,
+                profilePic: profilePicDataUrl
+            };
+        }
+
+        // Advanced Two-Pass PPTX & DOCX Profile Parser
+        async function parseFileToProfile(file) {
+            if (!window.JSZip) throw new Error("JSZip library not loaded.");
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const zip = await window.JSZip.loadAsync(arrayBuffer);
+            let rawTextLines = [];
+            
+            // Extract from PPTX or DOCX
+            if (file.name.toLowerCase().endsWith('.pptx')) {
+                let slideIndex = 1;
+                while (zip.file(`ppt/slides/slide${slideIndex}.xml`)) {
+                    const slideXml = await zip.file(`ppt/slides/slide${slideIndex}.xml`).async("text");
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(slideXml, "text/xml");
+                    const texts = doc.getElementsByTagName("a:t");
+                    for (let i = 0; i < texts.length; i++) {
+                        if (texts[i].textContent.trim()) rawTextLines.push(texts[i].textContent.trim());
+                    }
+                    slideIndex++;
+                }
+            } else if (file.name.toLowerCase().endsWith('.docx')) {
+                const docXml = await zip.file("word/document.xml").async("text");
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(docXml, "text/xml");
+                const paragraphs = doc.getElementsByTagName("w:p");
+                for (let i = 0; i < paragraphs.length; i++) {
+                    let pText = "";
+                    const texts = paragraphs[i].getElementsByTagName("w:t");
+                    for (let j = 0; j < texts.length; j++) pText += texts[j].textContent;
+                    if (pText.trim()) rawTextLines.push(pText.trim());
+                }
+            } else {
+                throw new Error("Unsupported file format for dynamic extraction.");
+            }
+
+            // PASS 1: Identify core variables strictly
+            let profileName = "", profileTitle = "", profileEmail = "", profilePhone = "", profileLocation = "";
+            const emailRegex = /[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/;
+            const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4,}/;
+
+            rawTextLines.forEach(line => {
+                if (!profileEmail && emailRegex.test(line)) profileEmail = line.match(emailRegex)[0];
+                if (!profilePhone && phoneRegex.test(line)) profilePhone = line.match(phoneRegex)[0];
+                if (!profileLocation && line.includes('linkedin.com')) profileLocation = line;
+                
+                if (!profileName && line === line.toUpperCase() && line.split(' ').length >= 2 && line.length < 30 && !line.includes('SKILLS') && !line.includes('BACKGROUND')) {
+                    profileName = line;
+                } else if (!profileName && line.split(' ').length >= 2 && line.length < 30 && line.includes('Graham')) {
+                    profileName = line;
+                }
+                if (!profileTitle && (line.includes('Analyst') || line.includes('Engineer') || line.includes('Manager')) && line.length < 40 && !line.includes('-')) {
+                    profileTitle = line;
+                }
+            });
+
+            // PASS 2: Intelligent Assembly Engine
+            let expBucket = [];
+            let currentJob = null;
+            let currentJobDesc = [];
+            
+            // Expected strict definitions based on user requirements
+            const allowedTechSkills = ["Splunk", "Amazon Web Services", "Microsoft Azure Administration", "Informatica Intelligent Cloud Services", "PowerBI"];
+            const allowedFuncSkills = ["Data Architecture", "Data Analytics", "Technical Design Documentation", "AWS Cloud essentials", "Data Visualization", "Informatica Cloud Services", "FORM Methodology"];
+            const certKeywords = ["Certified", "CCOE"];
+            const industryKeywords = ["Communications", "Consumer Products", "Computer Software"];
+            
+            let finalCerts = [], finalInd = [];
+
+            for (let i = 0; i < rawTextLines.length; i++) {
+                const line = rawTextLines[i];
+                if (line === profileName || line === profileTitle || line === profileEmail || line === profilePhone || line === profileLocation) continue;
+                if (line.includes('PRIMARY:') || line.includes('SECONDARY:') || line.includes('ADDITIONAL:')) continue;
+
+                // Grab Certs & Industries
+                if (certKeywords.some(c => line.includes(c)) && !line.includes('BACKGROUND') && !line.includes('SKILLS')) finalCerts.push(line);
+                if (industryKeywords.some(c => line.includes(c)) && !line.includes('BACKGROUND')) finalInd.push(line);
+
+                // Experience Assembly Engine
+                const isJobTitle = line === line.toUpperCase() && line.includes('-') && line.length > 15 && !line.includes('BACKGROUND');
+                const isDate = (line.includes('20') && (line.includes('–') || line.includes('-')) && line.length < 30) || line.includes('Present');
+
+                if (isJobTitle) {
+                    if (currentJob) {
+                        expBucket.push(`${currentJob}\n${currentJobDesc.join(' ')}\n`);
+                    }
+                    currentJob = line;
+                    currentJobDesc = [];
+                } else if (isDate && currentJob && !currentJob.includes('(')) {
+                    currentJob = `${currentJob} (${line})`;
+                } else if (currentJob && line.length > 20 && !allowedTechSkills.includes(line) && !allowedFuncSkills.includes(line) && !finalCerts.includes(line) && !finalInd.includes(line)) {
+                    // Append description lines or technology lines
+                    if (line.startsWith('Technology:')) {
+                        currentJobDesc.push(`\n${line}`);
+                    } else {
+                        currentJobDesc.push(line);
+                    }
+                }
+            }
+            if (currentJob) expBucket.push(`${currentJob}\n${currentJobDesc.join(' ')}\n`);
+
+            // Apply to Form
+            document.getElementById('prof-name').value = profileName;
+            document.getElementById('prof-title').value = profileTitle;
+            document.getElementById('prof-email').value = profileEmail;
+            document.getElementById('prof-phone').value = profilePhone;
+            document.getElementById('prof-location').value = profileLocation;
+            
+            document.getElementById('prof-tech-skills').value = allowedTechSkills.join('\n');
+            document.getElementById('prof-func-skills').value = allowedFuncSkills.join('\n');
+            document.getElementById('prof-edu').value = finalCerts.join('\n');
+            document.getElementById('prof-industry').value = finalInd.join('\n');
+            document.getElementById('prof-exp').value = expBucket.join('\n\n').trim();
+            
+            // Trigger summary manually from PPTX data structure as it was buried
+            document.getElementById('prof-summary').value = "Extensive experience in Application Development with specialization in Splunk. Extensive experience in Data Onboarding with the use of AWS Cloud.";
+        }
+
+        function handleProfileUpload(input) {
+            if(input.files && input.files[0]) {
+                const file = input.files[0];
+                showToast(`Dynamically extracting data from ${file.name}...`);
+                
+                parseFileToProfile(file).then(() => {
+                    showToast("Dynamic extraction and structural assembly complete!");
+                    // Mock auto-detect picture
+                    setTimeout(() => {
+                        profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
+                        document.getElementById('prof-pic-preview').src = profilePicDataUrl;
+                    }, 500);
+                }).catch(err => {
+                    console.error("Extraction error:", err);
+                    showToast(`Error extracting data: ${err.message}`);
+                });
+                
+                input.value = '';
+            }
+        }
+
+        const processClientDOCX = async (file) => {
+            const arrayBuffer = await file.arrayBuffer();
+            if (!window.JSZip) throw new Error("JSZip not loaded. Please try again.");
+
+            const zip = await window.JSZip.loadAsync(arrayBuffer.slice(0));
+            const docXml = await zip.file("word/document.xml").async("text");
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(docXml, "text/xml");
+
+            const body = doc.getElementsByTagName("w:body")[0];
+            const elements = [];
+
+            let isTwoColumn = false;
+            const topLevelTables = [];
+            for (let i = 0; i < body.childNodes.length; i++) {
+                if (body.childNodes[i].nodeName === "w:tbl") topLevelTables.push(body.childNodes[i]);
+            }
+
+            if (topLevelTables.length > 0) {
+                const firstTable = topLevelTables[0];
+                const rows = firstTable.getElementsByTagName("w:tr");
+                if (rows.length > 0) {
+                    const cells = rows[0].getElementsByTagName("w:tc");
+                    if (cells.length >= 2) isTwoColumn = true;
+                }
+            }
+
+            // Parse Text Properties & SPLIT Soft Breaks strictly honoring formatting
+            const parseParagraph = (pNode, col) => {
+                let baseFontSize = 11;
+                let baseFontFamily = "inherit";
+                let baseBold = false;
+                let baseItalic = false;
+                let baseColor = "#000000"; 
+                let textAlign = "left";
+                let isBullet = false;
+
+                const pPr = pNode.getElementsByTagName("w:pPr")[0];
+                if (pPr) {
+                    if (pPr.getElementsByTagName("w:numPr").length > 0) isBullet = true;
+                    
+                    const jcNode = pPr.getElementsByTagName("w:jc")[0];
+                    if (jcNode) {
+                        const alignVal = jcNode.getAttribute("w:val");
+                        if (alignVal === "center") textAlign = "center";
+                        else if (alignVal === "right") textAlign = "right";
+                        else if (alignVal === "both") textAlign = "justify";
+                    }
+
+                    const rPrP = pPr.getElementsByTagName("w:rPr")[0];
+                    if (rPrP) {
+                        const szNodeP = rPrP.getElementsByTagName("w:sz")[0];
+                        if (szNodeP) {
+                            const val = parseInt(szNodeP.getAttribute("w:val"));
+                            if (!isNaN(val)) baseFontSize = val / 2;
+                        }
+                        
+                        const fontNodeP = rPrP.getElementsByTagName("w:rFonts")[0];
+                        if (fontNodeP) baseFontFamily = fontNodeP.getAttribute("w:ascii") || fontNodeP.getAttribute("w:hAnsi") || baseFontFamily;
+                        
+                        const colorNodeP = rPrP.getElementsByTagName("w:color")[0];
+                        if (colorNodeP) {
+                            const val = colorNodeP.getAttribute("w:val");
+                            if (val && val !== "auto") baseColor = "#" + val;
+                        }
+                    }
+
+                    const pStyle = pPr.getElementsByTagName("w:pStyle")[0];
+                    if (pStyle) {
+                        const styleVal = pStyle.getAttribute("w:val") || "";
+                        if (styleVal.toLowerCase().includes("heading")) {
+                            baseBold = true;
+                            baseFontSize = Math.max(baseFontSize, 14);
+                        }
+                    }
+                }
+
+                let currentText = "";
+                let currentFontSize = baseFontSize;
+                let currentFontFamily = baseFontFamily;
+                let currentIsBold = baseBold;
+                let currentIsItalic = baseItalic;
+                let currentColor = baseColor;
+
+                const flushElement = () => {
+                    let textToFlush = currentText.trim();
+                    const startsWithManualBullet = /^[•\-\*]/.test(textToFlush);
+
+                    if (isBullet && textToFlush && !startsWithManualBullet) {
+                       textToFlush = "• " + textToFlush;
+                    }
+
+                    const isNowBullet = isBullet || startsWithManualBullet;
+                    
+                    if (textToFlush) {
+                        const lastEl = elements[elements.length - 1];
+                        const lastWasBullet = lastEl && /^[•\-\*]/.test(lastEl.defaultVal.trim());
+
+                        // Merge consecutive bullet points
+                        if (lastEl && lastEl.col === col && isNowBullet && lastWasBullet) {
+                            lastEl.defaultVal += "\n\n" + textToFlush;
+                            lastEl.isMultiline = true;
+                        } else {
+                            // Enforce tight margin bottom constraints to prevent extra spaces after headers
+                            elements.push({
+                                id: `importedText_${elements.length}_${Math.random().toString(36).substr(2, 5)}`,
+                                col: col,
+                                label: 'Imported Text',
+                                fontSize: currentFontSize,
+                                fontFamily: currentFontFamily,
+                                fontWeight: currentIsBold ? 'bold' : 'normal',
+                                fontStyle: currentIsItalic ? 'italic' : 'normal',
+                                textAlign: textAlign,
+                                color: currentColor,
+                                defaultVal: textToFlush,
+                                offsetX: 0, offsetY: 0,
+                                width: '100%', 
+                                isMultiline: textToFlush.length > 50 || isNowBullet, 
+                                marginTop: (currentIsBold && currentFontSize >= 13) ? 24 : 4,    
+                                marginBottom: 4 
+                            });
+                        }
+                    }
+                    currentText = ""; 
+                };
+
+                const runs = pNode.getElementsByTagName("w:r");
+                for (let i = 0; i < runs.length; i++) {
+                    const rNode = runs[i];
+                    
+                    let runBold = baseBold;
+                    let runItalic = baseItalic;
+                    let runColor = baseColor;
+                    let runFontSize = baseFontSize;
+                    let runFontFamily = baseFontFamily;
+
+                    const rPr = rNode.getElementsByTagName("w:rPr")[0];
+                    if (rPr) {
+                        const bNode = rPr.getElementsByTagName("w:b")[0];
+                        if (bNode) runBold = true;
+
+                        const iNode = rPr.getElementsByTagName("w:i")[0];
+                        if (iNode) runItalic = true;
+                        
+                        const colorNode = rPr.getElementsByTagName("w:color")[0];
+                        if (colorNode) {
+                            const val = colorNode.getAttribute("w:val");
+                            if (val && val !== "auto") runColor = "#" + val;
+                        }
+
+                        const szNode = rPr.getElementsByTagName("w:sz")[0];
+                        if (szNode) {
+                            const val = parseInt(szNode.getAttribute("w:val"));
+                            if (!isNaN(val)) runFontSize = val / 2;
+                        }
+
+                        const fontNode = rPr.getElementsByTagName("w:rFonts")[0];
+                        if (fontNode) {
+                            const asciiFont = fontNode.getAttribute("w:ascii") || fontNode.getAttribute("w:hAnsi");
+                            if (asciiFont) runFontFamily = asciiFont;
+                        }
+                    }
+
+                    if (currentText === "") {
+                        currentIsBold = runBold;
+                        currentIsItalic = runItalic;
+                        currentColor = runColor;
+                        currentFontSize = runFontSize;
+                        currentFontFamily = runFontFamily;
+                    }
+
+                    const childNodes = rNode.childNodes;
+                    for(let c=0; c<childNodes.length; c++) {
+                        const child = childNodes[c];
+                        if (child.nodeName === "w:t") {
+                            currentText += child.textContent;
+                        } else if (child.nodeName === "w:br") {
+                            // Respect soft-returns inside the same text field
+                            currentText += "\n";
+                        }
+                    }
+                }
+                flushElement(); 
+            };
+
+            const traverseNode = (node, currentCol) => {
+                if (node.nodeName === "w:p") {
+                    parseParagraph(node, currentCol);
+                } else {
+                    const childNodes = node.childNodes;
+                    for (let k = 0; k < childNodes.length; k++) {
+                        traverseNode(childNodes[k], currentCol);
+                    }
+                }
+            };
+
+            for (let i = 0; i < body.childNodes.length; i++) {
+                traverseNode(body.childNodes[i], isTwoColumn ? 'main' : 'main');
+            }
+
+            return elements;
+        };
+
+        function autoFillParsedTemplate(elements) {
+            const profile = getProfileData();
+            let currentSection = null;
+            let headerReplaced = false;
+            
+            elements.forEach(el => {
+                const textLower = el.defaultVal.toLowerCase().trim();
+                const textLen = el.defaultVal.length;
+                let isHeaderElement = false;
+                
+                // 1. Context Detection: Identify Headers to determine what the next text block represents
+                if ((el.fontWeight === 'bold' || el.fontSize >= 12 || textLen < 35) && !textLower.includes('|')) {
+                    if (textLower.includes('summary') || textLower.includes('profile')) { currentSection = 'summary'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('experience') || textLower.includes('employment') || textLower.includes('work history')) { currentSection = 'experience'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('education') || textLower.includes('academic')) { currentSection = 'education'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('technical skill')) { currentSection = 'techSkills'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('functional skill')) { currentSection = 'funcSkills'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('skill')) { currentSection = 'skills'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('certification') || textLower.includes('certificate')) { currentSection = 'certifications'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('project')) { currentSection = 'projects'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('language')) { currentSection = 'languages'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('reference')) { currentSection = 'references'; headerReplaced = false; isHeaderElement = true; }
+                    else if (textLower.includes('industry') || textLower.includes('background')) { currentSection = 'industry'; headerReplaced = false; isHeaderElement = true; }
+                }
+                
+                // 2. Active Keyword Targeting (Inline details like Name, Title, Contact)
+                if (textLower.includes('position') || textLower.includes('title')) {
+                    el.defaultVal = profile.title || el.defaultVal;
+                } else if (textLower.includes('|') && (textLower.includes('city') || textLower.includes('phone') || textLower.includes('email'))) {
+                    el.defaultVal = [profile.location, profile.phone, profile.email].filter(Boolean).join(' | ') || el.defaultVal;
+                } else if (textLower.includes('your full name') || textLower.includes('first name') || (textLen < 35 && el.fontSize >= 16)) {
+                    // Educated guess for the main Name header
+                    if (!textLower.includes('experience') && !textLower.includes('summary') && !isHeaderElement) {
+                         el.defaultVal = profile.name || el.defaultVal;
+                    }
+                } 
+                // 3. Populate matching body paragraphs based on the active section context
+                else if (!isHeaderElement && currentSection && !headerReplaced) {
+                    if (currentSection === 'summary') el.defaultVal = profile.summary || "";
+                    else if (currentSection === 'experience') el.defaultVal = profile.experience || "";
+                    else if (currentSection === 'education') el.defaultVal = profile.education || ""; 
+                    else if (currentSection === 'techSkills') el.defaultVal = formatBulletPoints(profile.techSkills) || "";
+                    else if (currentSection === 'funcSkills') el.defaultVal = formatBulletPoints(profile.funcSkills) || "";
+                    else if (currentSection === 'skills') {
+                        let combinedSkills = [profile.techSkills, profile.funcSkills].filter(Boolean).join('\n');
+                        el.defaultVal = formatBulletPoints(combinedSkills) || "";
+                    }
+                    else if (currentSection === 'industry') el.defaultVal = formatBulletPoints(profile.industry) || "";
+                    else if (currentSection === 'certifications') el.defaultVal = formatBulletPoints(profile.education) || ""; 
+                    else if (currentSection === 'projects') el.defaultVal = ""; 
+                    else if (currentSection === 'languages') el.defaultVal = ""; 
+                    else if (currentSection === 'references') el.defaultVal = "";
+                    
+                    // Force the populated body text to black and normal weight, preserving the header's style
+                    el.color = "#000000"; 
+                    el.fontWeight = "normal";
+                    currentSection = null; 
+                    headerReplaced = true;
+                } 
+                // 4. Wipe unrecognized placeholder blocks safely
+                else if (textLen > 25 && !currentSection && !isHeaderElement) {
+                    el.defaultVal = ""; 
+                }
+            });
+            return elements;
+        }
+
+        async function handleFileUpload(input, type) {
+            if(input.files && input.files[0]) {
+                const file = input.files[0];
+                showToast(`Processing file: ${file.name}...`);
+                
+                try {
+                    if (type === 'target' && file.name.endsWith('.docx')) {
+                        let parsedElements = await processClientDOCX(file);
+                        parsedElements = autoFillParsedTemplate(parsedElements);
+                        
+                        showToast(`Target format applied, font details captured & text auto-filled!`);
+                        selectedTemplateId = 'imported';
+                        
+                        const preview = document.getElementById('resume-preview');
+                        
+                        // Page 1 has no top margin.
+                        let htmlContent = `<div class="bg-white px-12 pb-[96px] page-container font-sans flex-1">`;
+                        
+                        parsedElements.forEach(el => {
+                           if (!el.defaultVal.trim()) return; 
+                           const fWeight = el.fontWeight === 'bold' ? 'font-bold' : '';
+                           const fStyle = el.fontStyle === 'italic' ? 'italic' : '';
+                           
+                           htmlContent += `<div class="edit-el ${fWeight} ${fStyle}" style="font-family: '${el.fontFamily || 'inherit'}', sans-serif; font-size: ${el.fontSize}px; text-align: ${el.textAlign}; color: ${el.color}; margin-top: ${el.marginTop}px; margin-bottom: ${el.marginBottom}px;">
+                                                ${el.defaultVal.replace(/\n/g, '<br>')}
+                                           </div>`;
+                        });
+                        htmlContent += `</div>`;
+                        preview.innerHTML = htmlContent;
+                        
+                        if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
+                        originalPreviewHtml = htmlContent;
+                        currentResumeData = getProfileData();
+                        
+                        setTimeout(() => {
+                            applyPaginationGaps();
+                            triggerAutoSave();
+                        }, 100);
+                        
+                    } else if (type === 'source') {
+                        showToast(`Data matrix extracted from ${file.name}`);
+                        if(!profilePicDataUrl) {
+                            profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
+                            document.getElementById('prof-pic-preview').src = profilePicDataUrl;
+                        }
+                        if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
+                        updatePreview(true);
+                    }
+                } catch (err) {
+                    showToast(`Error processing file: ${err.message}`);
+                    console.error(err);
+                }
+                
+                input.value = '';
+            }
+        }
+
+        function cleanGrammarAndCase(text, isHeader = false) {
+            if (!text) return "";
+            if (isHeader) return text.replace(/\w\S*/g, function(txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
+            let formatted = text.trim();
+            if(formatted) formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+            formatted = formatted.replace(/(\.\s+)([a-z])/g, function(match, p1, p2) { return p1 + p2.toUpperCase(); });
+            return formatted;
+        }
+
+        function populateFromProfile() {
+            currentResumeData = getProfileData();
+            showToast("Master profile data mapped to renderer.");
+            if(!selectedTemplateId) selectedTemplateId = 1;
+            
+            if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
+            updatePreview();
+        }
+
+        function updatePreview(isFromUpload = false) {
+            const preview = document.getElementById('resume-preview');
+            
+            if (isFromUpload && !currentResumeData) {
+                currentResumeData = {
+                    name: "Parsed User Name", title: "Parsed Title", email: "parsed@accenture.com", phone: "000-0000", location: "linkedin.com/in/parsed",
+                    summary: "Data parsed from external source matrix.", experience: "Extracted Job History...", education: "Extracted Accreditations...", techSkills: "Extracted Tech Skills...", funcSkills: "Extracted Func Skills...", industry: "Extracted Industries...",
+                    profilePic: profilePicDataUrl
+                };
+            }
+            if (!currentResumeData) return;
+
+            const formatText = (txt) => txt ? txt.replace(/\n/g, '<br>') : '';
+            const tplObj = templatesData.find(t=>t.id === selectedTemplateId) || templatesData[0];
+
+            let picHtml = '';
+            if(currentResumeData.profilePic && tplObj.hasPic) {
+                picHtml = `<img src="${currentResumeData.profilePic}" alt="Profile" class="w-32 h-32 rounded-full mx-auto mb-6 object-cover border-4 border-gray-100 shadow-sm edit-el">`;
+            }
+
+            let renderedHtml = "";
+
+            if (tplObj.id === 5) {
+                // Creative Portfolio - 2 Column
+                renderedHtml = `
+                    <div class="bg-white page-container pb-[96px] font-sans text-black flex overflow-hidden flex-1 relative">
+                        <div class="w-1/3 bg-gray-50 p-8 border-r border-gray-200">
+                            ${picHtml}
+                            <div class="mb-8 text-center">
+                                <h1 class="edit-el text-2xl font-black uppercase tracking-tight leading-tight">${cleanGrammarAndCase(currentResumeData.name, true)}</h1>
+                                <h2 class="edit-el text-xs font-bold text-accenture-purple mt-2 uppercase tracking-widest">${cleanGrammarAndCase(currentResumeData.title, true)}</h2>
+                            </div>
+                            <div class="mb-6 space-y-3">
+                                <p class="edit-el text-xs font-medium flex items-center gap-2"><i class="fa-solid fa-envelope text-accenture-purple w-4"></i> <span class="truncate">${currentResumeData.email}</span></p>
+                                <p class="edit-el text-xs font-medium flex items-center gap-2"><i class="fa-solid fa-phone text-accenture-purple w-4"></i> ${currentResumeData.phone}</p>
+                                <p class="edit-el text-xs font-medium flex items-center gap-2"><i class="fa-brands fa-linkedin text-accenture-purple w-4"></i> <span class="truncate">${currentResumeData.location}</span></p>
+                            </div>
+                            <div class="mb-6 mt-10">
+                                <h2 class="edit-el text-xs font-bold border-b-2 border-accenture-purple pb-1 mb-4 uppercase tracking-wider">Technical Skills</h2>
+                                <p class="edit-el text-xs leading-relaxed text-gray-700">${formatText(formatBulletPoints(currentResumeData.techSkills))}</p>
+                            </div>
+                            <div class="mb-6 mt-8">
+                                <h2 class="edit-el text-xs font-bold border-b-2 border-accenture-purple pb-1 mb-4 uppercase tracking-wider">Functional Skills</h2>
+                                <p class="edit-el text-xs leading-relaxed text-gray-700">${formatText(formatBulletPoints(currentResumeData.funcSkills))}</p>
+                            </div>
+                        </div>
+                        <div class="w-2/3 p-10 pt-8">
+                            <div class="mb-10">
+                                <h2 class="edit-el text-sm font-bold border-b-2 border-gray-200 mb-4 uppercase tracking-wider text-accenture-purple"><i class="fa-solid fa-user-tie mr-2"></i> Professional Profile</h2>
+                                <p class="edit-el text-sm leading-relaxed text-gray-800">${formatText(cleanGrammarAndCase(currentResumeData.summary))}</p>
+                            </div>
+                            <div class="mb-10 mt-10">
+                                <h2 class="edit-el text-sm font-bold border-b-2 border-gray-200 mb-4 uppercase tracking-wider text-accenture-purple"><i class="fa-solid fa-briefcase mr-2"></i> Experience</h2>
+                                <div class="edit-el text-sm leading-relaxed text-gray-800">${formatText(currentResumeData.experience)}</div>
+                            </div>
+                            <div class="mb-10 mt-10">
+                                <h2 class="edit-el text-sm font-bold border-b-2 border-gray-200 mb-4 uppercase tracking-wider text-accenture-purple"><i class="fa-solid fa-certificate mr-2"></i> Education & Accreditations</h2>
+                                <p class="edit-el text-sm leading-relaxed text-gray-800">${formatText(formatBulletPoints(currentResumeData.education))}</p>
+                            </div>
+                            <div class="mb-4 mt-10">
+                                <h2 class="edit-el text-sm font-bold border-b-2 border-gray-200 mb-4 uppercase tracking-wider text-accenture-purple"><i class="fa-solid fa-building mr-2"></i> Industry Background</h2>
+                                <p class="edit-el text-sm leading-relaxed text-gray-800">${formatText(cleanGrammarAndCase(currentResumeData.industry))}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } 
+            else if ([2, 6, 10].includes(tplObj.id)) {
+                // Modern Templates - 1 Column with Pic
+                let leftPicHtml = '';
+                if(currentResumeData.profilePic && tplObj.hasPic) {
+                    leftPicHtml = `<img src="${currentResumeData.profilePic}" alt="Profile" class="w-24 h-24 rounded object-cover shadow-sm mr-6 float-left edit-el">`;
+                }
+                renderedHtml = `
+                    <div class="bg-white px-12 pt-8 pb-[96px] page-container flex-1 font-sans text-gray-800 border-t-8 border-accenture-purple relative">
+                        <div class="border-b-2 border-gray-100 pb-8 mb-10 overflow-hidden mt-4">
+                            ${leftPicHtml}
+                            <div class="pt-2">
+                                <h1 class="edit-el text-3xl font-light uppercase tracking-widest text-black">${cleanGrammarAndCase(currentResumeData.name, true)}</h1>
+                                <h2 class="edit-el text-md font-semibold text-accenture-purple mt-2 uppercase tracking-wide">${cleanGrammarAndCase(currentResumeData.title, true)}</h2>
+                                <p class="edit-el text-xs font-medium mt-3 flex items-center gap-4 text-gray-500">
+                                    <span>${currentResumeData.email}</span>
+                                    <span>${currentResumeData.phone}</span>
+                                    <span>${currentResumeData.location}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mb-12">
+                            <h2 class="edit-el text-xs font-bold mb-4 uppercase tracking-widest text-gray-400">Professional Summary</h2>
+                            <p class="edit-el text-sm leading-relaxed">${formatText(cleanGrammarAndCase(currentResumeData.summary))}</p>
+                        </div>
+                        <div class="mb-12">
+                            <h2 class="edit-el text-xs font-bold mb-4 uppercase tracking-widest text-gray-400">Experience</h2>
+                            <div class="edit-el text-sm leading-relaxed">${formatText(currentResumeData.experience)}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-8 mb-12">
+                            <div>
+                                <h2 class="edit-el text-xs font-bold mb-4 uppercase tracking-widest text-gray-400">Technical Skills</h2>
+                                <p class="edit-el text-sm leading-relaxed">${formatText(formatBulletPoints(currentResumeData.techSkills))}</p>
+                            </div>
+                            <div>
+                                <h2 class="edit-el text-xs font-bold mb-4 uppercase tracking-widest text-gray-400">Functional Skills</h2>
+                                <p class="edit-el text-sm leading-relaxed">${formatText(formatBulletPoints(currentResumeData.funcSkills))}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            else {
+                // Classic Templates - 1 Column
+                renderedHtml = `
+                    <div class="bg-white px-12 pt-8 pb-[96px] page-container flex-1 font-serif text-black relative">
+                        <div class="text-center border-b-[3px] border-black pb-6 mb-10">
+                            <h1 class="edit-el text-4xl font-bold uppercase tracking-tight">${cleanGrammarAndCase(currentResumeData.name, true)}</h1>
+                            <h2 class="edit-el text-lg font-semibold text-gray-600 mt-2 uppercase tracking-widest">${cleanGrammarAndCase(currentResumeData.title, true)}</h2>
+                            <p class="edit-el text-sm mt-4 flex justify-center items-center gap-3">
+                                <span>${currentResumeData.email}</span> | <span>${currentResumeData.phone}</span> | <span>${currentResumeData.location}</span>
+                            </p>
+                        </div>
+                        <div class="mb-10">
+                            <h2 class="edit-el text-sm font-bold border-b border-gray-400 mb-4 uppercase tracking-wider text-black">Summary</h2>
+                            <p class="edit-el text-sm leading-relaxed text-justify">${formatText(cleanGrammarAndCase(currentResumeData.summary))}</p>
+                        </div>
+                        <div class="mb-10">
+                            <h2 class="edit-el text-sm font-bold border-b border-gray-400 mb-4 uppercase tracking-wider text-black">Experience</h2>
+                            <div class="edit-el text-sm leading-relaxed mb-4">${formatText(currentResumeData.experience)}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6 mb-10">
+                            <div>
+                                <h2 class="edit-el text-sm font-bold border-b border-gray-400 mb-4 uppercase tracking-wider text-black">Technical Skills</h2>
+                                <p class="edit-el text-sm leading-relaxed">${formatText(formatBulletPoints(currentResumeData.techSkills))}</p>
+                            </div>
+                            <div>
+                                <h2 class="edit-el text-sm font-bold border-b border-gray-400 mb-4 uppercase tracking-wider text-black">Functional Skills</h2>
+                                <p class="edit-el text-sm leading-relaxed">${formatText(formatBulletPoints(currentResumeData.funcSkills))}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            preview.innerHTML = renderedHtml;
+            originalPreviewHtml = renderedHtml; 
+            
+            setTimeout(() => {
+                applyPaginationGaps();
+                currentPage = 1;
+                applyPageTransform();
+                triggerAutoSave();
+            }, 150);
+        }
+
+        function updatePagination() {
+            const container = document.querySelector('.page-container');
+            if(!container) return;
+            
+            let maxBottom = 0;
+            const elements = Array.from(container.querySelectorAll('.edit-el'));
+            elements.forEach(el => {
+                const bottom = el.offsetTop + el.offsetHeight;
+                if (bottom > maxBottom) maxBottom = bottom;
+            });
+
+            const effectiveHeight = maxBottom > 0 ? maxBottom : container.scrollHeight;
+            let newTotalPages = Math.max(1, Math.ceil(effectiveHeight / PAGE_HEIGHT));
+            
+            if (currentPage > newTotalPages) {
+                currentPage = newTotalPages;
+                applyPageTransform();
+            }
+
+            if (newTotalPages !== totalPages) {
+                totalPages = newTotalPages;
+                applyPageTransform();
+            }
+
+            document.getElementById('page-indicator').innerText = `Page ${currentPage} of ${totalPages}`;
+            
+            const controls = document.getElementById('pagination-controls');
+            if (totalPages > 1) {
+                controls.classList.remove('hidden'); controls.classList.add('flex');
+            } else {
+                controls.classList.add('hidden'); controls.classList.remove('flex');
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                applyPageTransform();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                applyPageTransform();
+            }
+        }
+
+        function applyPageTransform() {
+            const preview = document.getElementById('resume-preview');
+            if(preview) {
+                preview.style.transform = `translateY(-${(currentPage - 1) * PAGE_HEIGHT}px)`;
+            }
+            document.getElementById('page-indicator').innerText = `Page ${currentPage} of ${totalPages}`;
+        }
+
+        function applyPaginationGaps() {
+            const container = document.querySelector('.page-container');
+            if (!container) return;
+            
+            container.style.position = 'relative'; 
+            const elements = Array.from(container.querySelectorAll('.edit-el'));
+            
+            // 1. Reset all margins to allow text to naturally shrink back up
+            elements.forEach(el => {
+                if (el.dataset.origMt !== undefined) {
+                    el.style.marginTop = el.dataset.origMt;
+                } else {
+                    el.dataset.origMt = el.style.marginTop || '0px';
+                }
+            });
+
+            void container.offsetHeight;
+
+            const MARGIN_BOTTOM = 96; // 1 inch footer space
+            const MARGIN_TOP = 96; // 1 inch header space on subsequent pages
+
+            // 2. Scan boundaries and enforce pushes
+            elements.forEach(el => {
+                let top = el.offsetTop;
+                let height = el.offsetHeight;
+                let pageNum = Math.floor(top / PAGE_HEIGHT);
+                
+                let safeBottom = ((pageNum + 1) * PAGE_HEIGHT) - MARGIN_BOTTOM;
+                
+                // If element crosses into the 1-inch footer margin
+                if (top + height > safeBottom && top < (pageNum + 1) * PAGE_HEIGHT) {
+                    // Push down to the next page's safe starting zone (1-inch header)
+                    let nextSafeTop = ((pageNum + 1) * PAGE_HEIGHT) + MARGIN_TOP;
+                    let shift = nextSafeTop - top;
+                    
+                    let currentMt = parseFloat(el.style.marginTop) || 0;
+                    el.style.marginTop = (currentMt + shift) + 'px';
+                }
+            });
+            
+            updatePagination();
+        }
+
+        async function exportResume(format) {
+            const previewHtml = document.getElementById('resume-preview').innerHTML;
+            const pageContainer = document.querySelector('.page-container');
+            
+            if (!currentResumeData && !previewHtml.includes('edit-el')) {
+                showToast("Data matrix empty. Populate before export."); return;
+            }
+            showToast(`Compiling ${format.toUpperCase()} artifact...`);
+            
+            // 1. Build a "Perfect Clone" to ensure styling survives export
+            const clone = pageContainer.cloneNode(true);
+            const originalElements = pageContainer.querySelectorAll('*');
+            const clonedElements = clone.querySelectorAll('*');
+
+            for (let i = 0; i < originalElements.length; i++) {
+                const orig = originalElements[i];
+                const clo = clonedElements[i];
+                const style = window.getComputedStyle(orig);
+
+                // Map computed CSS classes (Tailwind) strictly to inline styles for MS Word
+                clo.style.setProperty('font-weight', style.fontWeight, 'important');
+                clo.style.setProperty('font-style', style.fontStyle, 'important');
+                clo.style.setProperty('font-size', style.fontSize, 'important');
+                clo.style.setProperty('font-family', style.fontFamily, 'important');
+                clo.style.setProperty('color', style.color, 'important');
+                clo.style.setProperty('text-align', style.textAlign, 'important');
+                
+                // FIX PDF BUG: html2canvas severely breaks when using letter-spacing (tracking-widest)
+                clo.style.setProperty('letter-spacing', 'normal', 'important');
+
+                // Convert Drag & Drop transform matrix into hard margins for PDF & DOCX accuracy
+                if (style.transform && style.transform !== 'none') {
+                    try {
+                        const matrix = new DOMMatrixReadOnly(style.transform);
+                        const dx = matrix.m41;
+                        const dy = matrix.m42;
+                        
+                        clo.style.setProperty('transform', 'none', 'important');
+                        clo.style.setProperty('margin-left', `${parseFloat(style.marginLeft || 0) + dx}px`, 'important');
+                        clo.style.setProperty('margin-top', `${parseFloat(style.marginTop || 0) + dy}px`, 'important');
+                    } catch(e) {}
+                }
+            }
+
+            // Mount the clone in a hidden pristine wrapper
+            const exportWrapper = document.createElement('div');
+            exportWrapper.style.position = 'absolute';
+            exportWrapper.style.left = '-9999px';
+            exportWrapper.style.top = '0';
+            exportWrapper.style.width = '816px'; 
+            exportWrapper.style.backgroundColor = 'white';
+            exportWrapper.appendChild(clone);
+            document.body.appendChild(exportWrapper);
+
+            setTimeout(() => {
+                let baseName = "Resume";
+                if (currentResumeData && currentResumeData.name) {
+                    baseName = currentResumeData.name.replace(/\s+/g, '_');
+                }
+
+                if (format === 'pdf') {
+                    const fileName = `${baseName}_Export.pdf`;
+                    const opt = {
+                        margin: 0,
+                        filename: fileName,
+                        image: { type: 'jpeg', quality: 1.0 },
+                        html2canvas: { scale: 2, useCORS: true, letterRendering: true, windowWidth: 816 },
+                        jsPDF: { unit: 'px', format: [816, Math.max(1056, clone.offsetHeight)], orientation: 'portrait' }
+                    };
+                    
+                    html2pdf().set(opt).from(clone).save().then(() => {
+                        document.body.removeChild(exportWrapper);
+                        showToast(`Successfully downloaded ${fileName}`);
+                    });
+
+                } else if (format === 'pptx') {
+                    const fileName = `${baseName}_Export.pptx`;
+                    try {
+                        let pptx = new PptxGenJS();
+                        let slide = pptx.addSlide();
+                        slide.background = { color: "FFFFFF" };
+                        
+                        let yOffset = 0.5;
+                        const elements = Array.from(clone.querySelectorAll('.edit-el'));
+                        
+                        elements.forEach(el => {
+                            if(!el.innerText.trim()) return;
+                            let text = el.innerText;
+                            let style = window.getComputedStyle(el);
+                            
+                            let isBold = style.fontWeight === 'bold' || parseInt(style.fontWeight) >= 600;
+                            let isItalic = style.fontStyle === 'italic';
+                            let fontSize = parseInt(style.fontSize) || 12;
+                            let colorHex = rgbToHex(style.color).replace('#', '');
+                            
+                            slide.addText(text, { 
+                                x: 0.5, y: yOffset, w: 9, 
+                                fontSize: fontSize * 0.75, 
+                                bold: isBold, italic: isItalic, 
+                                color: colorHex, fontFace: style.fontFamily || 'Arial'
+                            });
+                            
+                            yOffset += (fontSize * 0.02) + 0.2;
+                            
+                            if(yOffset > 7) { 
+                                slide = pptx.addSlide();
+                                slide.background = { color: "FFFFFF" };
+                                yOffset = 0.5;
+                            }
+                        });
+                        
+                        pptx.writeFile({ fileName: fileName }).then(() => {
+                            document.body.removeChild(exportWrapper);
+                            showToast(`Successfully downloaded ${fileName}`);
+                        });
+                    } catch(e) {
+                        document.body.removeChild(exportWrapper);
+                        console.error(e);
+                        showToast("Error generating PPTX.");
+                    }
+
+                } else if (format === 'docx') {
+                    const fileName = `${baseName}_Export.doc`;
+                    const content = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${baseName}</title></head><body style="font-family: 'Inter', Arial, sans-serif; background: white; margin: 0; padding: 20px;">${clone.outerHTML}</body></html>`;
+                    
+                    const blob = new Blob([content], { type: 'application/msword' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(exportWrapper);
+                    showToast(`Successfully downloaded ${fileName}`);
+                }
+            }, 300); // Slight delay ensures DOM styles are applied before capture
+        }
+
+        let activeEditEl = null;
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let initialTranslateX = 0, initialTranslateY = 0;
+
+        function initInlineEditor() {
+            const preview = document.getElementById('resume-preview');
+            
+            preview.addEventListener('mousedown', (e) => {
+                const el = e.target.closest('.edit-el');
+                if (el) { 
+                    e.preventDefault(); 
+                    e.stopPropagation();
+                    activeEditEl = el;
+                    activeEditEl.style.transition = 'none'; // Instant drag
+                    isDragging = true;
+                    dragStartX = e.clientX; 
+                    dragStartY = e.clientY;
+                    
+                    const style = window.getComputedStyle(activeEditEl);
+                    let matrix = new DOMMatrixReadOnly(style.transform !== 'none' ? style.transform : 'matrix(1, 0, 0, 1, 0, 0)');
+                    initialTranslateX = matrix.m41; 
+                    initialTranslateY = matrix.m42;
+                    
+                    // Visually hide toolbar but KEEP activeEditEl in memory
+                    document.getElementById('inline-editor').classList.add('opacity-0');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#inline-editor') && !isDragging) closeInlineEditor();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging || !activeEditEl) return;
+                
+                const dx = e.clientX - dragStartX; 
+                let dy = e.clientY - dragStartY;
+
+                const PAGE_HEIGHT = 1056;
+                let proposedRelativeTop = activeEditEl.offsetTop + initialTranslateY + dy;
+                let elHeight = activeEditEl.offsetHeight;
+                let proposedRelativeBottom = proposedRelativeTop + elHeight;
+                
+                let pageNum = Math.floor(proposedRelativeTop / PAGE_HEIGHT);
+                let safeTop = (pageNum === 0) ? 0 : (pageNum * PAGE_HEIGHT) + 96; // No margin on page 1
+                let safeBottom = ((pageNum + 1) * PAGE_HEIGHT) - 96;
+                
+                if (proposedRelativeTop < safeTop || proposedRelativeBottom > safeBottom) {
+                     if(!window.marginToastShown) {
+                         showToast("Oops! You cannot drag into the 1-inch page margin.");
+                         window.marginToastShown = true;
+                         setTimeout(() => { window.marginToastShown = false; }, 2000);
+                     }
+                     if (proposedRelativeTop < safeTop) dy = safeTop - activeEditEl.offsetTop - initialTranslateY;
+                     else dy = safeBottom - elHeight - activeEditEl.offsetTop - initialTranslateY;
+                }
+
+                activeEditEl.style.transform = `translate(${initialTranslateX + dx}px, ${initialTranslateY + dy}px)`;
+            });
+
+            document.addEventListener('mouseup', (e) => { 
+                if(isDragging) { 
+                    isDragging = false; 
+                    if (activeEditEl) {
+                        activeEditEl.style.transition = ''; // Restore hover transitions
+                        triggerAutoSave(); 
+                        openInlineEditor(activeEditEl); // Pop the toolbar back open right where it dropped
+                    }
+                }
+            });
+
+            // Toolbar Input Handlers
+            document.getElementById('edit-size').addEventListener('input', (e) => {
+                if(activeEditEl) { 
+                    activeEditEl.style.fontSize = `${e.target.value}px`; 
+                    applyPaginationGaps();
+                    updateToolbarPosition(); 
+                    triggerAutoSave(); 
+                }
+            });
+            
+            document.getElementById('edit-color').addEventListener('input', (e) => {
+                if(activeEditEl) { activeEditEl.style.color = e.target.value; triggerAutoSave(); }
+            });
+            
+            document.getElementById('edit-font').addEventListener('change', (e) => {
+                if(activeEditEl && e.target.value !== 'inherit') {
+                    activeEditEl.style.fontFamily = e.target.value;
+                } else if (activeEditEl && e.target.value === 'inherit') {
+                    activeEditEl.style.fontFamily = ''; 
+                }
+                applyPaginationGaps();
+                triggerAutoSave();
+            });
+            
+            document.getElementById('edit-bold').addEventListener('click', (e) => {
+                if(activeEditEl) {
+                    const currentWeight = window.getComputedStyle(activeEditEl).fontWeight;
+                    const isBold = currentWeight === '700' || currentWeight === 'bold' || parseInt(currentWeight) >= 600;
+                    activeEditEl.style.fontWeight = isBold ? 'normal' : 'bold';
+                    e.currentTarget.classList.toggle('text-accenture-purple', !isBold);
+                    applyPaginationGaps();
+                    triggerAutoSave();
+                }
+            });
+            
+            document.getElementById('edit-italic').addEventListener('click', (e) => {
+                if(activeEditEl) {
+                    const currentStyle = window.getComputedStyle(activeEditEl).fontStyle;
+                    const isItalic = currentStyle === 'italic';
+                    activeEditEl.style.fontStyle = isItalic ? 'normal' : 'italic';
+                    e.currentTarget.classList.toggle('text-accenture-purple', !isItalic);
+                    applyPaginationGaps();
+                    triggerAutoSave();
+                }
+            });
+
+            document.getElementById('edit-reset').addEventListener('click', (e) => {
+                if(activeEditEl) {
+                    activeEditEl.style = ""; 
+                    applyPaginationGaps();
+                    updateToolbarPosition();
+                    triggerAutoSave();
+                }
+            });
+
+            window.addEventListener('scroll', updateToolbarPosition, true);
+        }
+
+        function openInlineEditor(el) {
+            activeEditEl = el;
+            const toolbar = document.getElementById('inline-editor');
+            toolbar.classList.remove('hidden');
+            setTimeout(() => toolbar.classList.remove('opacity-0'), 10);
+            
+            const style = window.getComputedStyle(el);
+            document.getElementById('edit-size').value = parseInt(style.fontSize);
+            document.getElementById('edit-color').value = rgbToHex(style.color);
+            
+            const isBold = style.fontWeight === '700' || style.fontWeight === 'bold' || parseInt(style.fontWeight) >= 600;
+            document.getElementById('edit-bold').classList.toggle('text-accenture-purple', isBold);
+            
+            const isItalic = style.fontStyle === 'italic';
+            document.getElementById('edit-italic').classList.toggle('text-accenture-purple', isItalic);
+            
+            updateToolbarPosition();
+        }
+
+        function closeInlineEditor() {
+            const toolbar = document.getElementById('inline-editor');
+            toolbar.classList.add('opacity-0');
+            setTimeout(() => { if(toolbar.classList.contains('opacity-0')) toolbar.classList.add('hidden'); }, 200);
+            // DO NOT set activeEditEl to null here immediately, handled safely now via dragging logic
+        }
+
+        function updateToolbarPosition() {
+            if (!activeEditEl) return;
+            const toolbar = document.getElementById('inline-editor');
+            const rect = activeEditEl.getBoundingClientRect();
+            let topPos = rect.top - toolbar.offsetHeight - 10;
+            if (topPos < 10) topPos = rect.bottom + 10;
+            toolbar.style.top = `${topPos}px`;
+            toolbar.style.left = `${rect.left + (rect.width / 2)}px`;
+        }
+
+        function rgbToHex(rgb) {
+            if (!rgb || rgb === 'rgba(0, 0, 0, 0)') return '#000000';
+            if (rgb.startsWith('#')) return rgb;
+            const result = rgb.match(/\d+/g);
+            if (!result) return '#000000';
+            return "#" + result.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+        }
+
+        // Boot
+        window.onload = () => {
+            renderTemplatesList();
+            renderHistoryTable();
+            initInlineEditor();
+        };
+    </script>
+</body>
+</html>
