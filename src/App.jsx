@@ -230,7 +230,7 @@
                     <!-- Header Info with Profile Picture -->
                     <div class="text-center border-b border-gray-200 pb-8 relative">
                         <div class="relative w-28 h-28 mx-auto mb-5 group">
-                            <img id="prof-pic-preview" src="https://placehold.co/128x128/f4f4f4/a100ff?text=PHOTO" alt="Profile" class="w-full h-full rounded-full object-cover border-4 border-white shadow-lg">
+                            <img id="prof-pic-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" alt="Profile" class="w-full h-full rounded-full object-cover border-4 border-white shadow-lg bg-gray-50 p-2">
                             <div class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onclick="document.getElementById('pic-upload').click()">
                                 <i class="fa-solid fa-camera text-white text-xl"></i>
                             </div>
@@ -937,7 +937,7 @@
                     showToast("Dynamic extraction and structural assembly complete!");
                     // Mock auto-detect picture
                     setTimeout(() => {
-                        profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
+                        profilePicDataUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                         document.getElementById('prof-pic-preview').src = profilePicDataUrl;
                     }, 500);
                 }).catch(err => {
@@ -1261,7 +1261,7 @@
                     } else if (type === 'source') {
                         showToast(`Data matrix extracted from ${file.name}`);
                         if(!profilePicDataUrl) {
-                            profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
+                            profilePicDataUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                             document.getElementById('prof-pic-preview').src = profilePicDataUrl;
                         }
                         if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
