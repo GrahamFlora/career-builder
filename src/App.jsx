@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Resume Builder</title>
+    <title>SLH Profiler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
@@ -37,6 +37,18 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
+        :root {
+            --theme-color: #a100ff;
+        }
+
+        /* Dynamic Theme Overrides for Tweaking */
+        .text-accenture-purple { color: var(--theme-color) !important; }
+        .bg-accenture-purple { background-color: var(--theme-color) !important; }
+        .border-accenture-purple { border-color: var(--theme-color) !important; }
+        .hover\:bg-accenture-purple:hover { background-color: var(--theme-color) !important; }
+        .hover\:text-accenture-purple:hover { color: var(--theme-color) !important; }
+        .hover\:border-accenture-purple:hover { border-color: var(--theme-color) !important; }
+
         body { background-color: #f4f4f4; color: #000000; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
         /* Modern Navbar Links */
@@ -57,7 +69,7 @@
             border: none;
         }
         .nav-link:hover { color: #fff; }
-        .nav-link.active { color: #fff; border-bottom: 3px solid #a100ff; }
+        .nav-link.active { color: #fff; border-bottom: 3px solid var(--theme-color); }
         
         .page-view { display: none; animation: fadeIn 0.4s ease-out; }
         .page-view.active { display: block; }
@@ -86,7 +98,7 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-size: 0.75rem;
             font-weight: 400;
-            box-shadow: 0 10px 15px -3px rgba(161, 0, 255, 0.2);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
             border: 1px solid #333;
             pointer-events: none;
         }
@@ -130,21 +142,21 @@
         }
         .doc-input:hover { background: #f9fafb; border-color: #e5e5e5; }
         .doc-input:focus {
-            background: #fff; outline: none; border-color: #a100ff;
-            box-shadow: 0 0 0 3px rgba(161, 0, 255, 0.1);
+            background: #fff; outline: none; border-color: var(--theme-color);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
         }
         .doc-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
         
         /* Template Grid Items */
         .template-card { border: 2px solid #e5e5e5; transition: all 0.3s; cursor: pointer; border-radius: 6px; background: #fff; flex-shrink: 0; width: 140px;}
         .template-card:hover { border-color: #d896ff; transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
-        .template-card.selected { border-color: #a100ff; background-color: #faf5ff; box-shadow: 0 0 0 2px rgba(161, 0, 255, 0.2); }
+        .template-card.selected { border-color: var(--theme-color); background-color: #faf5ff; box-shadow: 0 0 0 2px rgba(161, 0, 255, 0.2); }
         
         /* Custom Scrollbar */
         .h-scroll::-webkit-scrollbar { height: 6px; }
         .h-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        .h-scroll::-webkit-scrollbar-thumb { background: #c084fc; border-radius: 4px; }
-        .h-scroll::-webkit-scrollbar-thumb:hover { background: #a100ff; }
+        .h-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        .h-scroll::-webkit-scrollbar-thumb:hover { background: var(--theme-color); }
 
         /* Inline Editor Highlight */
         .edit-el {
@@ -154,10 +166,10 @@
             page-break-inside: avoid;
         }
         .edit-el:hover {
-            outline: 2px dashed rgba(161, 0, 255, 0.4);
+            outline: 2px dashed rgba(0, 0, 0, 0.2);
             outline-offset: 4px;
             border-radius: 2px;
-            background-color: rgba(161, 0, 255, 0.02);
+            background-color: rgba(0, 0, 0, 0.02);
         }
 
         /* Visual Pagination Guide */
@@ -183,10 +195,16 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-[101]">
             <div class="flex justify-between items-center h-[72px]">
                 <div class="flex-shrink-0 flex items-center gap-2 pointer-events-auto">
+                    <!-- Hamburger Icon moved to the far left -->
+                    <button onclick="toggleLeftMenu()" class="text-gray-300 hover:text-white transition-colors p-2 text-xl flex items-center mr-1" title="Open Menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
                     <span class="text-accenture-purple font-black text-3xl leading-none">></span>
-                    <span class="font-black text-xl tracking-widest text-white uppercase mt-1">ResumeCraft</span>
+                    <span class="font-black text-xl tracking-widest text-white uppercase mt-1">SLH TalentConnect</span>
                 </div>
-                <div class="flex space-x-1 sm:space-x-2 pointer-events-auto">
+                
+                <!-- Main Nav -->
+                <div class="flex space-x-1 sm:space-x-2 pointer-events-auto items-center">
                     <button type="button" id="btn-nav-profile" class="nav-link active flex items-center gap-2" onclick="switchTab('profile')">
                         <i class="fa-regular fa-user"></i> <span class="hidden sm:inline">Profile</span>
                     </button>
@@ -201,6 +219,26 @@
         </div>
     </nav>
 
+    <!-- LEFT MENU DRAWER -->
+    <div id="left-menu-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] hidden opacity-0 transition-opacity duration-300" onclick="toggleLeftMenu()"></div>
+    <div id="left-menu" class="fixed inset-y-0 left-0 w-72 bg-white shadow-2xl z-[210] transform -translate-x-full transition-transform duration-300 flex flex-col pointer-events-auto border-r border-gray-200">
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-black">
+            <span class="font-black text-lg tracking-widest text-white uppercase">App Menu</span>
+            <button onclick="toggleLeftMenu()" class="text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <div class="p-4 flex flex-col gap-2">
+            <button onclick="switchTab('sme'); toggleLeftMenu();" class="flex items-center gap-4 p-4 text-left hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 text-black font-bold transition-all shadow-sm">
+                <i class="fa-solid fa-users text-accenture-purple text-xl w-6"></i> 
+                <span class="uppercase tracking-widest text-sm">SME Finder</span>
+            </button>
+            <button onclick="switchTab('settings'); toggleLeftMenu();" class="flex items-center gap-4 p-4 text-left hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 text-black font-bold transition-all shadow-sm">
+                <i class="fa-solid fa-gear text-accenture-purple text-xl w-6"></i> 
+                <span class="uppercase tracking-widest text-sm">Settings</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTENT -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2 relative z-10 pointer-events-auto">
 
         <!-- ============================================== -->
@@ -230,7 +268,7 @@
                     <!-- Header Info with Profile Picture -->
                     <div class="text-center border-b border-gray-200 pb-8 relative">
                         <div class="relative w-28 h-28 mx-auto mb-5 group">
-                            <img id="prof-pic-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" alt="Profile" class="w-full h-full rounded-full object-cover border-4 border-white shadow-lg bg-gray-50 p-2">
+                            <img id="prof-pic-preview" src="https://placehold.co/128x128/f4f4f4/a100ff?text=PHOTO" alt="Profile" class="w-full h-full rounded-full object-cover border-4 border-white shadow-lg">
                             <div class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onclick="document.getElementById('pic-upload').click()">
                                 <i class="fa-solid fa-camera text-white text-xl"></i>
                             </div>
@@ -462,6 +500,67 @@
             </div>
         </section>
 
+        <!-- ============================================== -->
+        <!-- SME FINDER PAGE                                -->
+        <!-- ============================================== -->
+        <section id="view-sme" class="page-view">
+            <h2 class="text-3xl font-black text-accenture-dark uppercase tracking-tight mb-2 border-l-4 border-accenture-purple pl-3">SME Finder</h2>
+            <p class="text-sm text-accenture-gray font-medium mb-8 pl-4">Search experts by skill, name, or experience.</p>
+            
+            <div class="bg-white rounded shadow-md p-6 border border-accenture-border mb-8">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                    </div>
+                    <input type="text" id="sme-search" placeholder="Search (e.g., Splunk, AWS)..." class="doc-input text-base pl-11 py-3 w-full bg-gray-50 border-gray-200 shadow-inner rounded" oninput="renderSMEGrid(this.value)">
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-2 mt-4">
+                    <span class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mr-2">Quick Filters:</span>
+                    <button onclick="document.getElementById('sme-search').value='Splunk'; renderSMEGrid('Splunk')" class="bg-white border border-gray-200 hover:border-accenture-purple hover:text-accenture-purple text-accenture-gray px-4 py-1.5 rounded-full text-[11px] font-bold transition-colors shadow-sm">Splunk</button>
+                    <button onclick="document.getElementById('sme-search').value='AWS'; renderSMEGrid('AWS')" class="bg-white border border-gray-200 hover:border-accenture-purple hover:text-accenture-purple text-accenture-gray px-4 py-1.5 rounded-full text-[11px] font-bold transition-colors shadow-sm">AWS</button>
+                    <button onclick="document.getElementById('sme-search').value='Security'; renderSMEGrid('Security')" class="bg-white border border-gray-200 hover:border-accenture-purple hover:text-accenture-purple text-accenture-gray px-4 py-1.5 rounded-full text-[11px] font-bold transition-colors shadow-sm">Security</button>
+                    <button onclick="document.getElementById('sme-search').value='Data Analytics'; renderSMEGrid('Data Analytics')" class="bg-white border border-gray-200 hover:border-accenture-purple hover:text-accenture-purple text-accenture-gray px-4 py-1.5 rounded-full text-[11px] font-bold transition-colors shadow-sm">Data</button>
+                    <button onclick="document.getElementById('sme-search').value=''; renderSMEGrid('')" class="bg-gray-100 border border-gray-200 hover:bg-gray-300 text-gray-600 px-4 py-1.5 rounded-full text-[11px] font-bold transition-colors shadow-sm ml-2">Clear</button>
+                </div>
+            </div>
+
+            <div id="sme-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+                <!-- Cards populated by JS -->
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- SETTINGS PAGE                                  -->
+        <!-- ============================================== -->
+        <section id="view-settings" class="page-view">
+            <h2 class="text-3xl font-black text-accenture-dark uppercase tracking-tight mb-2 border-l-4 border-accenture-purple pl-3">Settings</h2>
+            <p class="text-sm text-accenture-gray font-medium mb-8 pl-4">Configure your application preferences.</p>
+
+            <div class="bg-white rounded shadow-md p-8 border border-accenture-border max-w-2xl">
+                <h3 class="font-black text-black uppercase tracking-widest text-sm mb-4 border-b border-gray-200 pb-2">Appearance</h3>
+                <div class="mb-8">
+                    <p class="text-sm font-bold text-gray-700 mb-3">App Accent Theme Color</p>
+                    <div class="flex gap-3">
+                        <button onclick="setThemeColor('#a100ff')" class="w-10 h-10 rounded-full bg-[#a100ff] shadow border-2 border-white ring-2 ring-transparent hover:ring-[#a100ff] transition-all" title="Accenture Purple"></button>
+                        <button onclick="setThemeColor('#0284c7')" class="w-10 h-10 rounded-full bg-[#0284c7] shadow border-2 border-white ring-2 ring-transparent hover:ring-[#0284c7] transition-all" title="Ocean Blue"></button>
+                        <button onclick="setThemeColor('#059669')" class="w-10 h-10 rounded-full bg-[#059669] shadow border-2 border-white ring-2 ring-transparent hover:ring-[#059669] transition-all" title="Emerald Green"></button>
+                        <button onclick="setThemeColor('#e11d48')" class="w-10 h-10 rounded-full bg-[#e11d48] shadow border-2 border-white ring-2 ring-transparent hover:ring-[#e11d48] transition-all" title="Rose Red"></button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Instantly updates the visual style of the application.</p>
+                </div>
+
+                <h3 class="font-black text-black uppercase tracking-widest text-sm mb-4 border-b border-gray-200 pb-2 mt-8">Data Management</h3>
+                <div class="mb-2">
+                    <p class="text-sm font-bold text-gray-700 mb-3">Clear App Data</p>
+                    <button onclick="clearHistoryData()" class="w-full sm:w-auto bg-white border border-red-500 text-red-500 hover:bg-red-50 font-bold py-2.5 px-6 rounded transition-colors text-sm shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-trash-can"></i> Clear History Repository
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2">Removes all saved artifacts from the History tab.</p>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Delete Confirmation Modal -->
@@ -531,6 +630,38 @@
             
             const activeView = document.getElementById(`view-${tabId}`);
             if(activeView) activeView.classList.add('active');
+        }
+
+        // --- Left Menu & Modal Logic ---
+        function toggleLeftMenu() {
+            const menu = document.getElementById('left-menu');
+            const overlay = document.getElementById('left-menu-overlay');
+            const isOpen = !menu.classList.contains('-translate-x-full');
+            
+            if (isOpen) {
+                menu.classList.add('-translate-x-full');
+                overlay.classList.remove('opacity-100');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            } else {
+                overlay.classList.remove('hidden');
+                void overlay.offsetWidth;
+                overlay.classList.add('opacity-100');
+                menu.classList.remove('-translate-x-full');
+            }
+        }
+
+        // Settings actions
+        function setThemeColor(hex) {
+            document.documentElement.style.setProperty('--theme-color', hex);
+            showToast("Application Theme Color updated successfully.");
+        }
+
+        function clearHistoryData() {
+            if(confirm("Are you sure you want to completely clear the artifact repository? This cannot be undone.")) {
+                historyRepository = [];
+                renderHistoryTable();
+                showToast("All historical artifacts have been permanently deleted.");
+            }
         }
 
         function showToast(message) {
@@ -937,7 +1068,7 @@
                     showToast("Dynamic extraction and structural assembly complete!");
                     // Mock auto-detect picture
                     setTimeout(() => {
-                        profilePicDataUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+                        profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
                         document.getElementById('prof-pic-preview').src = profilePicDataUrl;
                     }, 500);
                 }).catch(err => {
@@ -1261,7 +1392,7 @@
                     } else if (type === 'source') {
                         showToast(`Data matrix extracted from ${file.name}`);
                         if(!profilePicDataUrl) {
-                            profilePicDataUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+                            profilePicDataUrl = "https://placehold.co/128x128/a100ff/ffffff?text=PIC";
                             document.getElementById('prof-pic-preview').src = profilePicDataUrl;
                         }
                         if (!activeArtifactId) activeArtifactId = 'art-' + Date.now();
@@ -1859,11 +1990,113 @@
             return "#" + result.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
         }
 
+        // --- SME DATABASE & LOGIC ---
+        const defaultAvatarSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a100ff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+        const smeDatabase = [
+            {
+                name: "Graham Ross Flora",
+                title: "Application Development Analyst",
+                email: "graham.ross.flora@accenture.com",
+                skills: ["Splunk", "AWS", "Azure", "PowerBI", "Data Architecture"],
+                experience: "Extensive experience in Application Development with specialization in Splunk. Designed advanced Splunk solutions for large-scale log data.",
+                avatar: defaultAvatarSvg
+            },
+            {
+                name: "Maria Santos",
+                title: "Cloud Security Engineer",
+                email: "maria.santos@slh.com",
+                skills: ["Cybersecurity", "Salesforce", "AWS", "Network Architecture"],
+                experience: "Expert in cloud security infrastructure stopping threats in cyberspace. Provides enterprise security solutions and vulnerability assessments.",
+                avatar: defaultAvatarSvg
+            },
+            {
+                name: "Juan Dela Cruz",
+                title: "Lead Data Architect",
+                email: "juan.delacruz@slh.com",
+                skills: ["Data Architecture", "Informatica", "Technical Design", "AWS"],
+                experience: "Specializes in predictive modeling, cloud migrations, and creating advanced interactive dashboards for executive stakeholders.",
+                avatar: defaultAvatarSvg
+            },
+            {
+                name: "Sarah Chen",
+                title: "DevOps Specialist",
+                email: "sarah.chen@slh.com",
+                skills: ["Azure", "CI/CD", "Docker", "Kubernetes", "Splunk"],
+                experience: "Streamlines deployment pipelines and monitors system health using automated observability tools like Splunk and Datadog.",
+                avatar: defaultAvatarSvg
+            }
+        ];
+
+        function renderSMEGrid(query = "") {
+            const grid = document.getElementById('sme-grid');
+            if(!grid) return;
+            
+            grid.innerHTML = "";
+            const lowerQuery = query.toLowerCase();
+
+            const filteredSMEs = smeDatabase.filter(sme => {
+                return sme.name.toLowerCase().includes(lowerQuery) ||
+                       sme.skills.some(skill => skill.toLowerCase().includes(lowerQuery)) ||
+                       sme.title.toLowerCase().includes(lowerQuery) ||
+                       sme.experience.toLowerCase().includes(lowerQuery);
+            });
+
+            if (filteredSMEs.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-10 bg-white rounded shadow-sm border border-accenture-border">
+                        <i class="fa-solid fa-magnifying-glass text-3xl text-gray-300 mb-3"></i>
+                        <h3 class="text-sm font-bold text-black uppercase tracking-tight">No Experts Found</h3>
+                        <p class="text-accenture-gray mt-1 text-xs font-medium">Try adjusting your search terms.</p>
+                    </div>`;
+                return;
+            }
+
+            filteredSMEs.forEach(sme => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded border border-accenture-border shadow-sm hover:border-accenture-purple transition-all relative group flex flex-col h-full";
+                
+                const skillsHtml = sme.skills.map(s => `<span class="bg-gray-100 text-accenture-gray px-2 py-1 rounded-full text-[10px] font-bold border border-gray-200 uppercase tracking-wider">${s}</span>`).join('');
+                
+                card.innerHTML = `
+                    <div class="flex items-center gap-4 mb-4 mt-1">
+                        <img src="${sme.avatar}" alt="${sme.name}" class="w-14 h-14 rounded-full object-cover border-2 border-gray-100 shadow-sm">
+                        <div>
+                            <h3 class="font-black text-black text-base leading-tight uppercase tracking-tight">${sme.name}</h3>
+                            <p class="text-[11px] font-bold text-accenture-purple uppercase tracking-widest mt-0.5">${sme.title}</p>
+                        </div>
+                    </div>
+                    
+                    <p class="text-xs text-accenture-gray mb-4 line-clamp-3 leading-relaxed font-medium flex-1">
+                        ${sme.experience}
+                    </p>
+                    
+                    <div class="mb-5">
+                        <p class="text-[10px] font-black text-black mb-1.5 uppercase tracking-widest border-b border-gray-100 pb-1">Top Skills</p>
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            ${skillsHtml}
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-auto">
+                        <button onclick="window.location.href='mailto:${sme.email}?subject=SLH TalentConnect Inquiry'" class="flex-1 bg-white hover:bg-black text-black hover:text-white font-bold py-2 rounded border border-black transition-colors flex justify-center items-center gap-2 text-[11px] shadow-sm group">
+                            <i class="fa-regular fa-envelope"></i> Email
+                        </button>
+                        <button onclick="window.open('https://teams.microsoft.com/l/chat/0/0?users=${sme.email}', '_blank')" class="flex-1 bg-white hover:bg-[#5B5FC7] text-[#5B5FC7] hover:text-white font-bold py-2 rounded border border-[#5B5FC7] transition-colors flex justify-center items-center gap-2 text-[11px] shadow-sm group">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-microsoft-teams transition-colors" viewBox="0 0 16 16">  <path d="M9.186 4.797a2.42 2.42 0 1 0-2.86-2.448h1.178c.929 0 1.682.753 1.682 1.682zm-4.295 7.738h2.613c.929 0 1.682-.753 1.682-1.682V5.58h2.783a.7.7 0 0 1 .682.716v4.294a4.197 4.197 0 0 1-4.093 4.293c-1.618-.04-3-.99-3.667-2.35Zm10.737-9.372a1.674 1.674 0 1 1-3.349 0 1.674 1.674 0 0 1 3.349 0m-2.238 9.488-.12-.002a5.2 5.2 0 0 0 .381-2.07V6.306a1.7 1.7 0 0 0-.15-.725h1.792c.39 0 .707.317.707.707v3.765a2.6 2.6 0 0 1-2.598 2.598z"/>  <path d="M.682 3.349h6.822c.377 0 .682.305.682.682v6.822a.68.68 0 0 1-.682.682H.682A.68.68 0 0 1 0 10.853V4.03c0-.377.305-.682.682-.682Zm5.206 2.596v-.72h-3.59v.72h1.357V9.66h.87V5.945z"/></svg>
+                            Teams
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
         // Boot
         window.onload = () => {
             renderTemplatesList();
             renderHistoryTable();
             initInlineEditor();
+            renderSMEGrid();
         };
     </script>
 </body>
